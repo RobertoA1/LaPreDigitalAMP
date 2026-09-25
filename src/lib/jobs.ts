@@ -3,11 +3,12 @@ import Fuse from 'fuse.js';
 import { plain, plainMany, tables } from './db';
 import { contact, event } from './contacts';
 import { runAgent, channelFor } from './agents';
-import { sendToBoth, withinSendHours } from './messaging';
+import { sendToBoth, sendToPermittedRecipients, withinSendHours } from './messaging';
 import { normalizeName } from './exams';
 import { scanRadar, runRadar } from './radar';
 import { processInbound } from './inbound';
 import type { Contact, Channel } from './types';
+import { assessPayerOnboarding, shouldSendRenewalNotice } from './stage-agents';
 
 export async function enqueue(kind: string, contactId: number | null, payload: object = {}, runAt = new Date(), dedupeKey?: string) {
   const db = tables();
@@ -44,6 +45,18 @@ export async function scanSchedules(now = new Date()) {
       const days = daysUntil(c.renewalAt, now);
       if ([7, 3, 1].includes(days)) {
         await enqueue('RENEWAL', c.id, { expectedRenewalAt: c.renewalAt, days }, now, `renewal:${c.id}:${c.renewalAt}:${days}`);
+        scheduled++;
+      }
+    }
+    if (c.stage === 'PAYER' && c.stageChangedAt && assessPayerOnboarding(c, [], now).activation === 'CONFIRMED') {
+      const activatedAt = new Date(c.stageChangedAt).getTime();
+      const elapsed = now.getTime() - activatedAt;
+      const onboardingDay = elapsed >= 0 ? Math.floor(elapsed / 86400000) : -1;
+      if (onboardingDay === 1 || onboardingDay === 2) {
+        await enqueue('PAYER_ONBOARDING', c.id, { stageChangedAt: c.stageChangedAt, day: onboardingDay }, now, `payer-onboarding:${c.id}:${new Date(activatedAt).toISOString()}:day:${onboardingDay}`);
+        scheduled++;
+      } else if (onboardingDay === 3 && assessPayerOnboarding(c, [], now).earlyInactivity) {
+        await enqueue('PAYER_ONBOARDING', c.id, { stageChangedAt: c.stageChangedAt, day: onboardingDay, mode: 'INACTIVITY_CHECK' }, now, `payer-onboarding:${c.id}:${new Date(activatedAt).toISOString()}:inactivity-check`);
         scheduled++;
       }
     }
@@ -101,26 +114,48 @@ export async function processNextJob() {
   if (!claimed) return true;
   try {
     const payload = JSON.parse(candidate.payload || '{}');
-    if (!['ANALYZE', 'INBOUND'].includes(candidate.kind) && !payload.inbound && !withinSendHours(now)) {
+    if (!['ANALYZE', 'INBOUND'].includes(candidate.kind) && !(candidate.kind === 'PAYER_ONBOARDING' && payload.mode === 'INACTIVITY_CHECK') && !payload.inbound && !withinSendHours(now)) {
       await db.amp_jobs.update({ status: 'PENDING', runAt: nextSendWindow(now), leaseUntil: null }, { where: { id: candidate.id } });
       return true;
     }
     if (candidate.kind === 'INBOUND') await processInbound(payload.messageId);
     else if (candidate.kind === 'ANALYZE') await runRadar(candidate.contactId, payload, now);
     else if (candidate.kind === 'AGENT' || candidate.kind === 'ACADEMIC') await runAgent(candidate.contactId, !!payload.inbound);
+    else if (candidate.kind === 'PAYER_ONBOARDING') {
+      const c = await contact(candidate.contactId);
+      if (c?.stage === 'PAYER' && c.stageChangedAt && new Date(c.stageChangedAt).getTime() === new Date(payload.stageChangedAt).getTime()) {
+        const messages = plainMany<any>(await db.amp_messages.findAll({ where: { contactId: c.id }, order: [['createdAt', 'DESC']], limit: 50 }));
+        const assessment = assessPayerOnboarding(c, messages, now);
+        if (payload.mode === 'INACTIVITY_CHECK') {
+          if (assessment.earlyInactivity) await event(c.id, 'PAYER_ONBOARDING', 'Ayuda personalizada recomendada: no hay actividad registrada después de la activación.', 'AGENT', 'Agente de Cobranza', {
+            dedupeKey: String(candidate.dedupeKey), ...assessment,
+            recommendation: assessment.nextAction,
+            sourceFields: ['stageChangedAt', 'lastActivityAt', 'academicStatus', 'progress']
+          });
+        } else if (assessment.withinFirstThreeDays) {
+          await runAgent(c.id);
+        }
+      }
+    }
     else if (candidate.kind === 'RENEWAL') {
       const c = await contact(candidate.contactId);
-      if (c && c.renewalAt && new Date(c.renewalAt).getTime() === new Date(payload.expectedRenewalAt).getTime() && !['RENEWED', 'CANCELLED'].includes(c.paymentStatus || '') && c.stage !== 'TURNED') {
+      if (c && shouldSendRenewalNotice(c, payload.expectedRenewalAt)) {
         const channel = channelFor(c.stage, c.interestChannel);
         if (!channel) throw new Error('MCE sin conector');
-        await sendToBoth(c.id, channel, `Hola, ${c.fullName.split(' ')[0]}. Tu servicio LaPreDigital vence en ${payload.days} día${payload.days === 1 ? '' : 's'}. Si deseas continuar tu preparación, revisa tu renovación en la plataforma. ¿Necesitas ayuda?`, 'Agente de Cobranza', true);
+        const studentBody = `Hola, ${c.fullName.split(' ')[0]}. Tu servicio LaPreDigital vence en ${payload.days} día${payload.days === 1 ? '' : 's'}. Si deseas continuar tu preparación, revisa tu renovación en la plataforma. ¿Necesitas ayuda?`;
+        const guardianBody = c.stage === 'PAYER' ? `Hola, ${c.guardianName?.split(' ')[0] || 'apoderado'}. Con tu autorización, acompañamos a ${c.fullName.split(' ')[0]} con el próximo vencimiento de su servicio. Si ya renovaron, el datamart debe confirmarlo antes de detener futuros avisos.` : studentBody;
+        if (c.stage === 'PAYER') await sendToPermittedRecipients(c.id, channel, studentBody, guardianBody, 'Agente de Cobranza', true);
+        else await sendToBoth(c.id, channel, studentBody, 'Agente de Cobranza', true);
       }
     } else if (candidate.kind === 'SIMULACRO') {
       const c = await contact(candidate.contactId);
       if (c && (c.stage === 'PAYER' || c.stage === 'CUSTOMER')) {
         const channel = channelFor(c.stage, c.interestChannel);
         if (!channel) throw new Error('MCE sin conector');
-        await sendToBoth(c.id, channel, `Hola, ${c.fullName.split(' ')[0]}. Este fin de semana revisa los simulacros disponibles en LaPreDigital y reserva un momento para practicar. ¿Necesitas ayuda para organizarte?`, 'Agente Académico', true);
+        const studentBody = `Hola, ${c.fullName.split(' ')[0]}. Este fin de semana revisa los simulacros disponibles en LaPreDigital y reserva un momento para practicar. ¿Necesitas ayuda para organizarte?`;
+        const guardianBody = c.stage === 'PAYER' ? `Hola, ${c.guardianName?.split(' ')[0] || 'apoderado'}. Puedes acompañar a ${c.fullName.split(' ')[0]} a revisar los simulacros disponibles y reservar un momento para practicar.` : studentBody;
+        if (c.stage === 'PAYER') await sendToPermittedRecipients(c.id, channel, studentBody, guardianBody, 'Agente Académico', true);
+        else await sendToBoth(c.id, channel, studentBody, 'Agente Académico', true);
       }
     } else if (candidate.kind === 'OFFER') {
       const approval = plain<any>(await db.amp_approvals.findByPk(payload.approvalId));

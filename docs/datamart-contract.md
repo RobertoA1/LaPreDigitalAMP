@@ -16,6 +16,12 @@ El perfil académico semanal contiene `activitiesCompleted`, `activitiesPlanned`
 
 Las tablas `amp_*` nunca se llenan desde el OLTP. Guardan operadores, mensajes, eventos, correcciones, trabajos, sugerencias del Radar (`amp_insights`), decisiones de triaje entrante (`amp_inbound_triage`), exámenes importados, aprobaciones, campañas y cupones. El TXT original no se conserva después de procesarse; se guardan filas estructuradas, nombre de archivo y auditoría.
 
+## Señales IMPULSE sin ampliar el esquema
+
+La detección BUYER, el perfil negociador LEAD y las evaluaciones de onboarding PAYER se auditan en `amp_events` (tipos `BUYER_INTENT_SIGNAL`, `LEAD_NEGOTIATION_PROFILE` y `PAYER_ONBOARDING`). Las señales BUYER guardan `messageId`, tipo, evidencia y recomendación Buyer → Lead; no cambian `dm_contacts.stage`. El perfil LEAD combina `career`, `missingCourses`, `plan` y `academicStatus` disponibles con evidencia explícita de mensajes entrantes; los datos no detectados se muestran como campos faltantes, no se escriben en el datamart.
+
+El onboarding PAYER solo puede confirmar activación con `stageChangedAt` y un estado de pago confirmado (`ACTIVE`, `PAID` o `RENEWED`), y actividad con `lastActivityAt` posterior a la activación. El contrato actual no expone hitos independientes para acceso, diagnóstico inicial o ruta de estudio: esos estados permanecen `NO_DATA` salvo que el contacto los confirme explícitamente en el chat. Una fecha de última actividad anterior a la activación permite recomendar ayuda después de tres días; un `lastActivityAt` ausente no se interpreta como inactividad. No se requieren nuevas tablas, columnas, migraciones ni proyecciones para estas mejoras.
+
 ## Validaciones de carga del DBMS
 
 1. Cada `dm_contacts.sourceKey` corresponde a una única persona del OLTP.

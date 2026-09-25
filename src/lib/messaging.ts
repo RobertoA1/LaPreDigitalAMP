@@ -9,12 +9,19 @@ export function peruHour(now = new Date()) {
 export function withinSendHours(now = new Date()) { const hour = peruHour(now); return hour >= 7 && hour < 23; }
 function address(channel: Channel, c: Awaited<ReturnType<typeof contact>>, recipientKind: 'STUDENT' | 'GUARDIAN') { return recipientKind === 'GUARDIAN' ? (channel === 'EMAIL' ? c?.guardianEmail : c?.guardianPhone) : (channel === 'EMAIL' ? c?.email : c?.phone); }
 function allowed(channel: Channel, c: Awaited<ReturnType<typeof contact>>, recipientKind: 'STUDENT' | 'GUARDIAN') { return recipientKind === 'GUARDIAN' ? c?.guardianConsent : (channel === 'EMAIL' ? c?.consentEmail : c?.consentWhatsapp); }
+export function messagePermission(c: Awaited<ReturnType<typeof contact>>, channel: Channel, recipientKind: 'STUDENT' | 'GUARDIAN' = 'STUDENT') {
+  if (!allowed(channel, c, recipientKind)) return 'NO_CONSENT' as const;
+  if (!address(channel, c, recipientKind)) return 'NO_ADDRESS' as const;
+  return 'ALLOWED' as const;
+}
 export async function sendMessage(contactId: number, channel: Channel, body: string, senderType: 'AGENT' | 'OPERATOR', senderId: string, automatic = false, replying = false, recipientKind: 'STUDENT' | 'GUARDIAN' = 'STUDENT', replyToId?: number) {
   const c = await contact(contactId);
   if (!c) throw new Error('Contacto no encontrado');
   if (c.admissionStatus === 'ADMITTED' && c.stage === 'TURNED') throw new Error('Recuperación detenida: ingresó a la universidad');
   if (c.contactPaused) throw new Error('El contacto está pausado');
-  if (!allowed(channel, c, recipientKind)) throw new Error(`Sin autorización para ${channel}`);
+  const permission = messagePermission(c, channel, recipientKind);
+  if (permission === 'NO_CONSENT') throw new Error(`Sin autorización para ${channel}`);
+  if (permission === 'NO_ADDRESS') throw new Error(`Falta dirección para ${channel}`);
   const to = address(channel, c, recipientKind);
   if (!to) throw new Error(`Falta dirección para ${channel}`);
   if (automatic && !replying && !withinSendHours()) throw new Error('Fuera de horario automático (07:00 a 23:00, Lima)');
@@ -59,13 +66,33 @@ export async function receiveMessage(contactId: number, channel: Channel, body: 
   return row;
 }
 
-export async function sendToBoth(contactId: number, channel: Channel, body: string, senderId: string, automatic = true, replying = false) {
+export async function sendToBoth(contactId: number, channel: Channel, body: string, senderId: string, automatic = true, replying = false, guardianBody = body) {
   const c = await contact(contactId);
   if (!c) throw new Error('Contacto no encontrado');
   const student = await sendMessage(contactId, channel, body, 'AGENT', senderId, automatic, replying, 'STUDENT');
-  if (c.guardianConsent && (channel === 'EMAIL' ? c.guardianEmail : c.guardianPhone)) {
-    try { await sendMessage(contactId, channel, body, 'AGENT', senderId, automatic, replying, 'GUARDIAN'); }
+  if (messagePermission(c, channel, 'GUARDIAN') === 'ALLOWED') {
+    try { await sendMessage(contactId, channel, guardianBody, 'AGENT', senderId, automatic, replying, 'GUARDIAN'); }
     catch (error) { await event(contactId, 'GUARDIAN_DELIVERY_ERROR', `No se pudo contactar al apoderado por ${channel}.`, 'SYSTEM', senderId, { error: String(error) }); }
   }
   return student;
+}
+
+export async function sendToPermittedRecipients(contactId: number, channel: Channel, studentBody: string, guardianBody: string, senderId: string, automatic = true, replying = false) {
+  const c = await contact(contactId);
+  if (!c) throw new Error('Contacto no encontrado');
+  const sent: Array<'STUDENT' | 'GUARDIAN'> = [];
+  if (messagePermission(c, channel, 'STUDENT') === 'ALLOWED') {
+    await sendMessage(contactId, channel, studentBody, 'AGENT', senderId, automatic, replying, 'STUDENT');
+    sent.push('STUDENT');
+  }
+  if (messagePermission(c, channel, 'GUARDIAN') === 'ALLOWED') {
+    try {
+      await sendMessage(contactId, channel, guardianBody, 'AGENT', senderId, automatic, replying, 'GUARDIAN');
+      sent.push('GUARDIAN');
+    } catch (error) {
+      await event(contactId, 'GUARDIAN_DELIVERY_ERROR', `No se pudo contactar al apoderado por ${channel}.`, 'SYSTEM', senderId, { error: String(error) });
+    }
+  }
+  if (!sent.length) await event(contactId, 'AGENT_NO_CONSENT', `Sin consentimiento o dirección válida para ${channel}; no se enviaron mensajes.`, 'SYSTEM', senderId);
+  return sent;
 }

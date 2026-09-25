@@ -4,6 +4,7 @@ import { contact, event } from './contacts';
 import { channelFor } from './agents';
 import { generate } from './ai';
 import { agents, type Channel, type Contact } from './types';
+import { parseStructuredProposal, promptForStage } from './stage-agents';
 
 type ConversationMessage = { id: number; direction: string; body: string; channel: string; recipientKind?: string; createdAt: string | Date };
 export type ConversationAssessment = { phase: string; silenceDays: number; deadlineAt: Date | null; sourceMessageId: number; alert: boolean };
@@ -114,8 +115,14 @@ export async function runRadar(contactId: number, expected: { key: string; sourc
   let draft = fallbackDraft(c, assessment.phase, messages), provider = 'RULES', model = 'RULES';
   if (draft) {
     try {
-      const result = await generate(`Eres el analista de conversaciones del ${agents[c.stage]} de LaPreDigital. Redacta únicamente UN borrador de mensaje breve en español peruano. Es sugerencia para revisión humana; NO lo envíes. Respeta la conversación y el canal. No inventes datos, precios, resultados, becas, promociones ni descuentos. No prometas ingreso. No presiones ni repitas el último mensaje.`, JSON.stringify({ phase: assessment.phase, silenceDays: assessment.silenceDays, stage: c.stage, name: c.fullName, career: c.career, strategy: advice, recentMessages: messages.slice(-8).map(m => ({ direction: m.direction, body: m.body })) }));
-      if (result.text && !/descuento|beca|semibeca|cup[oó]n|promoci[oó]n|\d{1,3}\s?%/i.test(result.text)) { draft = result.text.slice(0, 4000); provider = result.provider; model = result.model; }
+      if (['BUYER', 'LEAD', 'PAYER'].includes(c.stage)) {
+        const result = await generate(`${promptForStage(c.stage)}\n\nEres también el Radar transversal. Redacta solo un borrador breve para revisión humana; NO lo envíes. Devuelve el objeto JSON estructurado de la etapa.`, JSON.stringify({ phase: assessment.phase, silenceDays: assessment.silenceDays, stage: c.stage, name: c.fullName, career: c.career, university: c.university, plan: c.plan, strategy: advice, recentMessages: messages.slice(-8).map(m => ({ direction: m.direction, body: m.body })) }));
+        const proposal = parseStructuredProposal(result.text);
+        if (proposal.draft && proposal.proposalType === 'NONE' && !proposal.needsApproval && !/descuento|beca|semibeca|cup[oó]n|promoci[oó]n|\d{1,3}\s?%/i.test(proposal.draft)) { draft = proposal.draft.slice(0, 4000); provider = result.provider; model = result.model; }
+      } else {
+        const result = await generate(`Eres el analista de conversaciones del ${agents[c.stage]} de LaPreDigital. Redacta únicamente UN borrador de mensaje breve en español peruano. Es sugerencia para revisión humana; NO lo envíes. Respeta la conversación y el canal. No inventes datos, precios, resultados, becas, promociones ni descuentos. No prometas ingreso. No presiones ni repitas el último mensaje.`, JSON.stringify({ phase: assessment.phase, silenceDays: assessment.silenceDays, stage: c.stage, name: c.fullName, career: c.career, strategy: advice, recentMessages: messages.slice(-8).map(m => ({ direction: m.direction, body: m.body })) }));
+        if (result.text && !/descuento|beca|semibeca|cup[oó]n|promoci[oó]n|\d{1,3}\s?%/i.test(result.text)) { draft = result.text.slice(0, 4000); provider = result.provider; model = result.model; }
+      }
     } catch { /* plantilla explícita cuando no hay llave o falla el proveedor */ }
   }
   const latestNow = plain<any>(await db.amp_messages.findOne({ where: { contactId, recipientKind: 'STUDENT' }, order: [['createdAt', 'DESC'], ['id', 'DESC']] }));
