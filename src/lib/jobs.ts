@@ -5,6 +5,8 @@ import { contact, event } from './contacts';
 import { runAgent, channelFor } from './agents';
 import { sendToBoth, withinSendHours } from './messaging';
 import { normalizeName } from './exams';
+import { scanRadar, runRadar } from './radar';
+import { processInbound } from './inbound';
 import type { Contact, Channel } from './types';
 
 export async function enqueue(kind: string, contactId: number | null, payload: object = {}, runAt = new Date(), dedupeKey?: string) {
@@ -55,6 +57,7 @@ export async function scanSchedules(now = new Date()) {
     }
   }
   await matchNewBuyers();
+  scheduled += await scanRadar(now);
   return scheduled;
 }
 async function matchNewBuyers() {
@@ -98,11 +101,13 @@ export async function processNextJob() {
   if (!claimed) return true;
   try {
     const payload = JSON.parse(candidate.payload || '{}');
-    if (!payload.inbound && !withinSendHours(now)) {
+    if (!['ANALYZE', 'INBOUND'].includes(candidate.kind) && !payload.inbound && !withinSendHours(now)) {
       await db.amp_jobs.update({ status: 'PENDING', runAt: nextSendWindow(now), leaseUntil: null }, { where: { id: candidate.id } });
       return true;
     }
-    if (candidate.kind === 'AGENT' || candidate.kind === 'ACADEMIC') await runAgent(candidate.contactId, !!payload.inbound);
+    if (candidate.kind === 'INBOUND') await processInbound(payload.messageId);
+    else if (candidate.kind === 'ANALYZE') await runRadar(candidate.contactId, payload, now);
+    else if (candidate.kind === 'AGENT' || candidate.kind === 'ACADEMIC') await runAgent(candidate.contactId, !!payload.inbound);
     else if (candidate.kind === 'RENEWAL') {
       const c = await contact(candidate.contactId);
       if (c && c.renewalAt && new Date(c.renewalAt).getTime() === new Date(payload.expectedRenewalAt).getTime() && !['RENEWED', 'CANCELLED'].includes(c.paymentStatus || '') && c.stage !== 'TURNED') {

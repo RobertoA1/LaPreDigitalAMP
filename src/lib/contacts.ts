@@ -6,7 +6,7 @@ export async function contacts(stage?: Stage, search?: string) {
   const where: Record<string, unknown> = {};
   if (stage) where.stage = stage;
   if (search) where.fullName = { [Op.like]: `%${search.replace(/[%_]/g, '')}%` };
-  return plainMany<Contact>(await tables().dm_contacts.findAll({ where, order: [['createdAt', 'DESC']], limit: 250 }));
+  return plainMany<Contact>(await tables().dm_contacts.findAll({ where, order: [['createdAt', 'DESC']] }));
 }
 export async function contact(id: number): Promise<Contact | null> {
   const base = plain<Contact>(await tables().dm_contacts.findByPk(id));

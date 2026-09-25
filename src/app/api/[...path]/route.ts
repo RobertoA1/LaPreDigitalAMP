@@ -10,6 +10,8 @@ import { enqueue } from '@/lib/jobs';
 import { importExam, confirmExamMatch } from '@/lib/exams';
 import { receiveMessage, sendMessage } from '@/lib/messaging';
 import { aiConfig } from '@/lib/ai';
+import { radarConfig, openInsights, dismissInsight, sendInsight } from '@/lib/radar';
+import { prioritize } from '@/lib/priorities';
 import { stages, type Stage, type Channel } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -28,30 +30,75 @@ export async function GET(req: NextRequest, context: { params: Promise<{ path: s
     const path = (await context.params).path.join('/');
     const db = tables();
     if (path === 'me') return ok({ user, demo: process.env.DEMO_MODE === 'true' });
+    if (path === 'live') {
+      const version = async () => (await Promise.all(['amp_events', 'amp_insights', 'amp_approvals', 'amp_messages'].map(name => db[name].max('id')))).map(value => Number(value) || 0).join(':');
+      let lastId = await version();
+      const encoder = new TextEncoder();
+      let timer: ReturnType<typeof setInterval> | undefined;
+      let closed = false, busy = false;
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode(': connected\n\n'));
+          timer = setInterval(async () => {
+            if (closed || busy) return;
+            busy = true;
+            try {
+              const newest = await version();
+              if (newest !== lastId) { lastId = newest; controller.enqueue(encoder.encode(`data: ${JSON.stringify({ id: newest })}\n\n`)); }
+              else controller.enqueue(encoder.encode(': heartbeat\n\n'));
+            } catch { /* La reconexión del navegador mantiene el canal activo. */ }
+            finally { busy = false; }
+          }, 2500);
+          req.signal.addEventListener('abort', () => { closed = true; if (timer) clearInterval(timer); try { controller.close(); } catch { /* ya cerrado */ } }, { once: true });
+        },
+        cancel() { closed = true; if (timer) clearInterval(timer); }
+      });
+      return new Response(stream, { headers: { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' } });
+    }
+
     if (path === 'dashboard') {
       const snapshot = plain<any>(await db.dm_funnel_daily.findOne({ order: [['snapshotDate', 'DESC']] }));
       const all = plainMany<any>(await db.dm_contacts.findAll());
       const current = Object.fromEntries(stages.map(stage => [stage, all.filter(c => c.stage === stage).length]));
       const pending = await db.amp_approvals.count({ where: { status: 'PENDING' } });
+      const radarAlerts = await db.amp_insights.count({ where: { status: 'OPEN', alert: true } });
       const failedJobs = await db.amp_jobs.count({ where: { status: 'FAILED' } });
       const latest = plainMany(await db.amp_events.findAll({ order: [['createdAt', 'DESC']], limit: 8 }));
-      return ok({ snapshot, current, pending, failedJobs, latest, demo: process.env.DEMO_MODE === 'true' });
+      return ok({ snapshot, current, pending, radarAlerts, failedJobs, latest, demo: process.env.DEMO_MODE === 'true' });
     }
     if (path === 'contacts') {
       const stage = req.nextUrl.searchParams.get('stage') as Stage | null;
       if (stage && !stages.includes(stage)) return fail('Etapa inválida');
-      return ok({ contacts: await contacts(stage || undefined, req.nextUrl.searchParams.get('search') || undefined) });
+      const rows = await contacts(stage || undefined, req.nextUrl.searchParams.get('search') || undefined);
+      const ids = rows.map(c => c.id);
+      const [insights, approvals, topEntries] = ids.length ? await Promise.all([
+        db.amp_insights.findAll({ where: { contactId: { [Op.in]: ids }, status: 'OPEN' } }),
+        db.amp_approvals.findAll({ where: { contactId: { [Op.in]: ids }, status: 'PENDING' } }),
+        db.amp_exam_entries.findAll({ where: { matchedContactId: { [Op.in]: ids }, nonAdmittedRank: { [Op.lte]: 10 }, result: 'NOT_ADMITTED' } })
+      ]) : [[], [], []];
+      const insightById = new Map<number, any>();
+      for (const item of plainMany<any>(insights).sort((a, b) => (b.phase === 'MANUAL_REPLY' ? 1 : 0) - (a.phase === 'MANUAL_REPLY' ? 1 : 0) || Number(b.alert) - Number(a.alert) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())) if (!insightById.has(item.contactId)) insightById.set(item.contactId, item);
+      const approvalIds = new Set(plainMany<any>(approvals).map(item => item.contactId));
+      const topIds = new Set(plainMany<any>(topEntries).map(item => item.matchedContactId));
+      const prioritized = rows.map(c => prioritize(c, insightById.get(c.id) || null, approvalIds.has(c.id), topIds.has(c.id))).sort((a, b) => b.priorityScore - a.priorityScore || new Date(b.lastActivityAt || b.createdAt).getTime() - new Date(a.lastActivityAt || a.createdAt).getTime());
+      return ok({ contacts: prioritized, attention: prioritized.filter(c => c.requiresAttention), waiting: prioritized.filter(c => !c.requiresAttention) });
     }
     if (path === 'contact') {
       const id = Number(req.nextUrl.searchParams.get('id'));
       const c = await contact(id);
       if (!c) return fail('Contacto no encontrado', 404);
-      return ok({ contact: c, history: await contactHistory(id), weekly: plainMany(await db.dm_academic_weekly.findAll({ where: { contactId: id }, order: [['weekStart', 'DESC']], limit: 12 })), recommendations: await recommend(c) });
+      return ok({ contact: c, history: await contactHistory(id), insights: await openInsights(id), weekly: plainMany(await db.dm_academic_weekly.findAll({ where: { contactId: id }, order: [['weekStart', 'DESC']], limit: 12 })), recommendations: await recommend(c) });
+    }
+    if (path === 'radar') {
+      const insights = await openInsights();
+      const rows = insights.length ? plainMany<any>(await db.dm_contacts.findAll({ where: { id: { [Op.in]: insights.map(item => item.contactId) } } })) : [];
+      const names = Object.fromEntries(rows.map(row => [row.id, row.fullName]));
+      return ok({ insights: insights.map(item => ({ ...item, contactName: names[item.contactId] || `Contacto #${item.contactId}` })), followup: await radarConfig() });
     }
     if (path === 'approvals') return ok({ approvals: plainMany(await db.amp_approvals.findAll({ order: [['createdAt', 'DESC']], limit: 200 })) });
     if (path === 'campaigns') return ok({ campaigns: plainMany(await db.amp_campaigns.findAll({ order: [['createdAt', 'DESC']], limit: 100 })) });
     if (path === 'exams') return ok({ exams: plainMany(await db.amp_exams.findAll({ order: [['createdAt', 'DESC']], limit: 100 })), review: plainMany(await db.amp_exam_entries.findAll({ where: { matchedContactId: null, matchConfidence: { [Op.gt]: 0 } }, limit: 100 })) });
-    if (path === 'settings') return ok({ ai: await aiConfig(), hasKeys: { OPENAI: !!process.env.OPENAI_API_KEY, GEMINI: !!process.env.GEMINI_API_KEY, GROK: !!process.env.XAI_API_KEY, ANTHROPIC: !!process.env.ANTHROPIC_API_KEY }, demo: process.env.DEMO_MODE === 'true' });
+    if (path === 'settings') return ok({ ai: await aiConfig(), followup: await radarConfig(), hasKeys: { OPENAI: !!process.env.OPENAI_API_KEY, GEMINI: !!process.env.GEMINI_API_KEY, GROK: !!process.env.XAI_API_KEY, ANTHROPIC: !!process.env.ANTHROPIC_API_KEY }, demo: process.env.DEMO_MODE === 'true' });
     if (path === 'jobs') return ok({ jobs: plainMany(await db.amp_jobs.findAll({ order: [['createdAt', 'DESC']], limit: 100 })) });
     return fail('Ruta no encontrada', 404);
   } catch (error) { console.error(error); return fail(String(error), 500); }
@@ -77,7 +124,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ path: 
       const matched = all.filter(c => { const p = String(c.phone || '').replace(/\D/g, ''); return p === number || (p.length >= 9 && number.length >= 9 && p.slice(-9) === number.slice(-9)); });
       if (matched.length !== 1) { await event(null, 'UNMATCHED_INBOUND', 'Mensaje de WhatsApp sin contacto único en datamart.', 'SYSTEM', 'evolution'); return ok({ unmatched: true }); }
       const row = await receiveMessage(matched[0].id, 'WHATSAPP', text, messageId);
-      await enqueue('AGENT', matched[0].id, { inbound: true, replyTo: row.get('id') });
+      await enqueue('INBOUND', matched[0].id, { messageId: row.get('id') }, new Date(), `inbound:${row.get('id')}`);
       return ok({ accepted: true });
     }
     if (path === 'login') {
@@ -101,14 +148,34 @@ export async function POST(req: NextRequest, context: { params: Promise<{ path: 
     if (path === 'message/send') {
       const data = z.object({ contactId: z.number().int().positive(), channel: z.enum(['WHATSAPP', 'EMAIL']), recipientKind: z.enum(['STUDENT', 'GUARDIAN']).optional(), text: z.string().trim().min(1).max(4000) }).parse(await body(req));
       const row = await sendMessage(data.contactId, data.channel, data.text, 'OPERATOR', String(user.id), false, false, data.recipientKind || 'STUDENT');
+      await db.amp_insights.update({ status: 'SUPERSEDED', updatedAt: new Date() }, { where: { contactId: data.contactId, phase: 'MANUAL_REPLY', status: 'OPEN' } });
       return ok({ message: plain(row) });
     }
     if (path === 'message/inbound') {
       if (process.env.DEMO_MODE !== 'true') return fail('La simulación de entrada solo está disponible en Demo', 403);
       const data = z.object({ contactId: z.number().int().positive(), channel: z.enum(['WHATSAPP', 'EMAIL']), text: z.string().trim().min(1).max(4000) }).parse(await body(req));
       const row = await receiveMessage(data.contactId, data.channel, data.text);
-      await enqueue('AGENT', data.contactId, { inbound: true, replyTo: row.get('id') });
+      await enqueue('INBOUND', data.contactId, { messageId: row.get('id') }, new Date(), `inbound:${row.get('id')}`);
       return ok({ message: plain(row) });
+    }
+    if (path === 'radar/dismiss') {
+      const data = z.object({ id: z.number().int().positive() }).parse(await body(req));
+      await dismissInsight(data.id, user.id);
+      return ok({ ok: true });
+    }
+    if (path === 'radar/send') {
+      const data = z.object({ id: z.number().int().positive() }).parse(await body(req));
+      const message = await sendInsight(data.id, user.id);
+      return ok({ message: plain(message) });
+    }
+    if (path === 'settings/followup') {
+      if (!canConfigure(user.role)) return fail('Solo administración puede cambiar el plazo de seguimiento', 403);
+      const data = z.object({ maxDays: z.number().int().min(1).max(90) }).parse(await body(req));
+      const existing = await db.amp_settings.findOne({ where: { key: 'followup' } });
+      const value = JSON.stringify({ maxDays: data.maxDays });
+      if (existing) await existing.update({ value, updatedAt: new Date() }); else await db.amp_settings.create({ key: 'followup', value, updatedAt: new Date() });
+      await event(null, 'FOLLOWUP_SETTINGS', `Seguimiento máximo: ${data.maxDays} días.`, 'OPERATOR', String(user.id));
+      return ok({ ok: true });
     }
     if (path === 'contact/override') {
       const data = z.object({ contactId: z.number().int().positive(), field: z.enum(['email', 'phone', 'career', 'interestChannel', 'notes', 'guardianEmail', 'guardianPhone', 'contactPaused']), value: z.string().max(1000), reason: z.string().trim().min(3) }).parse(await body(req));

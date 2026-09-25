@@ -13,8 +13,8 @@ async function main() {
   const name = '001_initial_datamart_and_amp';
   if (!done.has(name)) {
     for (const [table, attributes] of Object.entries(specs)) {
-      if (table === 'dm_academic_weekly' || table === 'amp_contact_state') continue;
-      const initial = table === 'dm_contacts' ? Object.fromEntries(Object.entries(attributes).filter(([field]) => field !== 'stageChangedAt')) : table === 'amp_messages' ? Object.fromEntries(Object.entries(attributes).filter(([field]) => field !== 'recipientKind')) : attributes;
+      if (table === 'dm_academic_weekly' || table === 'amp_contact_state' || table === 'amp_insights' || table === 'amp_inbound_triage') continue;
+      const initial = table === 'dm_contacts' ? Object.fromEntries(Object.entries(attributes).filter(([field]) => field !== 'stageChangedAt')) : table === 'amp_messages' ? Object.fromEntries(Object.entries(attributes).filter(([field]) => !['recipientKind', 'replyToId'].includes(field))) : attributes;
       await qi.createTable(table, initial);
     }
     await qi.addIndex('dm_contacts', ['stage']);
@@ -51,6 +51,22 @@ async function main() {
     await qi.createTable('amp_contact_state', specs.amp_contact_state);
     await db.query('INSERT INTO amp_migrations (name, appliedAt) VALUES (:name, :appliedAt)', { replacements: { name: fifth, appliedAt: new Date() } });
     console.log(`Migración aplicada: ${fifth}`);
+  }
+  const sixth = '006_conversation_radar';
+  if (!done.has(sixth)) {
+    await qi.createTable('amp_insights', specs.amp_insights);
+    await qi.addIndex('amp_insights', ['contactId', 'status']);
+    await qi.addIndex('amp_insights', ['status', 'alert', 'createdAt']);
+    await db.query('INSERT INTO amp_migrations (name, appliedAt) VALUES (:name, :appliedAt)', { replacements: { name: sixth, appliedAt: new Date() } });
+    console.log(`Migración aplicada: ${sixth}`);
+  }
+  const seventh = '007_inbound_triage';
+  if (!done.has(seventh)) {
+    if (!('replyToId' in await qi.describeTable('amp_messages'))) await qi.addColumn('amp_messages', 'replyToId', specs.amp_messages.replyToId);
+    await qi.createTable('amp_inbound_triage', specs.amp_inbound_triage);
+    await qi.addIndex('amp_inbound_triage', ['contactId', 'createdAt']);
+    await db.query('INSERT INTO amp_migrations (name, appliedAt) VALUES (:name, :appliedAt)', { replacements: { name: seventh, appliedAt: new Date() } });
+    console.log(`Migración aplicada: ${seventh}`);
   }
   await db.close();
 }

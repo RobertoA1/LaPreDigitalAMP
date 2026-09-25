@@ -1,6 +1,6 @@
 # Contrato de datamart y migraciones
 
-Los SQL suministrados describen un **OLTP** (`oltp.*`) y reportes derivados (`rpt.*`), pero no un datamart físico independiente. La instrucción vigente es que la plataforma académica y el DBMS hagan la transferencia manual. Por ello las migraciones `001`–`005` definen el **destino analítico que consume el AMP**, junto con su almacenamiento operativo; no replican ni modifican el OLTP externo.
+Los SQL suministrados describen un **OLTP** (`oltp.*`) y reportes derivados (`rpt.*`), pero no un datamart físico independiente. La instrucción vigente es que la plataforma académica y el DBMS hagan la transferencia manual. Por ello las migraciones `001`–`007` definen el **destino analítico que consume el AMP**, junto con su almacenamiento operativo; no replican ni modifican el OLTP externo.
 
 | Tabla del AMP | Grano | Fuentes propuestas en la base adjunta |
 |---|---|---|
@@ -14,7 +14,7 @@ El snapshot `dm_funnel_daily` contiene contadores acumulados de la cohorte: `uni
 
 El perfil académico semanal contiene `activitiesCompleted`, `activitiesPlanned`, `score`, `simulations` y `missingCourses`. El agente Académico solo menciona mejoras si hay al menos dos semanas comparables. Para otros KPI del PDF, se pueden añadir nuevas proyecciones `dm_*` mediante migraciones adicionales, sin cambiar el historial operativo.
 
-Las tablas `amp_*` nunca se llenan desde el OLTP. Guardan operadores, mensajes, eventos, correcciones, trabajos, exámenes importados, aprobaciones, campañas y cupones. El TXT original no se conserva después de procesarse; se guardan filas estructuradas, nombre de archivo y auditoría.
+Las tablas `amp_*` nunca se llenan desde el OLTP. Guardan operadores, mensajes, eventos, correcciones, trabajos, sugerencias del Radar (`amp_insights`), decisiones de triaje entrante (`amp_inbound_triage`), exámenes importados, aprobaciones, campañas y cupones. El TXT original no se conserva después de procesarse; se guardan filas estructuradas, nombre de archivo y auditoría.
 
 ## Validaciones de carga del DBMS
 

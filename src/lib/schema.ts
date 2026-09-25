@@ -37,6 +37,18 @@ export const specs: Record<string, ModelAttributes> = {
     id, contactId: { type: DataTypes.INTEGER, allowNull: false, unique: true }, stage: req(20),
     version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 }, sourceUpdatedAt: date, createdAt
   },
+  amp_insights: {
+    id, dedupeKey: { ...req(180), unique: true }, contactId: { type: DataTypes.INTEGER, allowNull: false },
+    stage: req(20), channel: str(20), phase: req(30), status: req(20), alert: bool(),
+    silenceDays: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 }, deadlineAt: date,
+    sourceMessageId: { type: DataTypes.INTEGER, allowNull: false }, draft: text, strategy: { type: DataTypes.TEXT, allowNull: false },
+    provider: str(40), model: str(100), createdAt, updatedAt: createdAt
+  },
+  amp_inbound_triage: {
+    id, messageId: { type: DataTypes.INTEGER, allowNull: false, unique: true },
+    contactId: { type: DataTypes.INTEGER, allowNull: false }, decision: req(20),
+    reason: { type: DataTypes.TEXT, allowNull: false }, createdAt
+  },
   amp_users: {
     id, email: { ...req(200), unique: true }, name: req(120), passwordHash: req(255),
     role: req(30), active: bool(true), createdAt

@@ -25,6 +25,7 @@ export async function runAgent(contactId: number, inbound = false) {
   if (c.stage === 'TURNED' && c.admissionStatus === 'ADMITTED') return { skipped: 'Ingresó a la universidad' };
   const db = tables();
   const messages = plainMany<any>(await db.amp_messages.findAll({ where: { contactId }, order: [['createdAt', 'DESC']], limit: 8 }));
+  if (messages[0]?.direction === 'IN') return { skipped: 'La respuesta entrante está en evaluación o requiere atención manual.' };
   const recs = await recommend(c);
   const weekly = c.stage === 'CUSTOMER' ? plainMany<any>(await db.dm_academic_weekly.findAll({ where: { contactId }, order: [['weekStart', 'DESC']], limit: 2 })) : [];
   const current = weekly[0], previous = weekly[1];
@@ -45,6 +46,7 @@ export async function runAgent(contactId: number, inbound = false) {
   }
   if (offerInOutput) {
     await db.amp_approvals.create({ contactId, kind: 'OFFER_REVIEW', status: 'PENDING', payload: JSON.stringify({ proposedMessage: text }), reason: 'El agente propuso una oferta que necesita aprobación.', requestedBy: agents[c.stage], createdAt: new Date() });
+    await event(contactId, 'APPROVAL_REQUEST', 'Oferta propuesta por el agente pendiente de revisión.', 'AGENT', agents[c.stage]);
     return { approval: true, provider, model, text };
   }
   const channel = channelFor(c.stage, c.interestChannel);
@@ -66,7 +68,7 @@ export async function runAgent(contactId: number, inbound = false) {
   return { sent: [channel], provider, model, text };
 }
 
-async function learnExplicitData(contactId: number, c: Awaited<ReturnType<typeof contact>>, body: string) {
+export async function learnExplicitData(contactId: number, c: Awaited<ReturnType<typeof contact>>, body: string) {
   if (!c) return;
   const changes: [string, string][] = [];
   const email = body.match(/(?:mi correo (?:es|:)|escr[ií]beme a)\s*([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i)?.[1];

@@ -9,7 +9,7 @@ export function peruHour(now = new Date()) {
 export function withinSendHours(now = new Date()) { const hour = peruHour(now); return hour >= 7 && hour < 23; }
 function address(channel: Channel, c: Awaited<ReturnType<typeof contact>>, recipientKind: 'STUDENT' | 'GUARDIAN') { return recipientKind === 'GUARDIAN' ? (channel === 'EMAIL' ? c?.guardianEmail : c?.guardianPhone) : (channel === 'EMAIL' ? c?.email : c?.phone); }
 function allowed(channel: Channel, c: Awaited<ReturnType<typeof contact>>, recipientKind: 'STUDENT' | 'GUARDIAN') { return recipientKind === 'GUARDIAN' ? c?.guardianConsent : (channel === 'EMAIL' ? c?.consentEmail : c?.consentWhatsapp); }
-export async function sendMessage(contactId: number, channel: Channel, body: string, senderType: 'AGENT' | 'OPERATOR', senderId: string, automatic = false, replying = false, recipientKind: 'STUDENT' | 'GUARDIAN' = 'STUDENT') {
+export async function sendMessage(contactId: number, channel: Channel, body: string, senderType: 'AGENT' | 'OPERATOR', senderId: string, automatic = false, replying = false, recipientKind: 'STUDENT' | 'GUARDIAN' = 'STUDENT', replyToId?: number) {
   const c = await contact(contactId);
   if (!c) throw new Error('Contacto no encontrado');
   if (c.admissionStatus === 'ADMITTED' && c.stage === 'TURNED') throw new Error('Recuperación detenida: ingresó a la universidad');
@@ -49,7 +49,7 @@ export async function sendMessage(contactId: number, channel: Channel, body: str
     }
     status = 'SENT';
   }
-  const row = await tables().amp_messages.create({ contactId, channel, direction: 'OUT', body, status, senderType, senderId, recipientKind, externalId, createdAt: new Date() });
+  const row = await tables().amp_messages.create({ contactId, channel, direction: 'OUT', body, status, senderType, senderId, recipientKind, externalId, replyToId: replyToId || null, createdAt: new Date() });
   await event(contactId, 'MESSAGE', `${senderType === 'AGENT' ? 'Agente' : 'Operador'}: ${channel} ${status === 'SIMULATED' ? 'simulado' : 'enviado'} a ${recipientKind === 'GUARDIAN' ? 'apoderado' : 'estudiante'}.`, senderType, senderId, { messageId: row.get('id') });
   return row;
 }
