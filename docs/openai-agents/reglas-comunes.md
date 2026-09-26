@@ -10,4 +10,6 @@ Toda promoción individual, cupón, descuento, beca o semibeca no aprobada requi
 
 Al evaluar un mensaje entrante, `AUTO_REPLY_CANDIDATE` solo corresponde a respuesta factual breve cubierta por conocimiento vigente y sin consecuencias económicas o académicas. Si hay precio vigente, oferta, pago, baja, queja, resultado de admisión, datos personales, duda no verificada o incertidumbre, emite `ESCALATE` con borrador y motivo. No uses silencio como consentimiento. El AMP valida y envía; nunca afirmes haber enviado algo sin confirmación.
 
-Formato de salida de prueba: JSON válido con `action`, `channel`, `draft`, `reason`, `facts_used` (lista de fuentes o campos), `needs_approval` (booleano). Sin texto adicional.
+Para una propuesta de agente de etapa, devuelve únicamente JSON válido con `draft`, `nextAction`, `priority` (`ALTA`, `MEDIA` o `BAJA`), `priorityReason`, `missingFields`, `proposalType` (`NONE`, `DISCOUNT`, `SCHOLARSHIP` o `HALF_SCHOLARSHIP`), `needsApproval` y `factsUsed`. El backend valida la estructura y vuelve a calcular las reglas de negocio; estos campos no autorizan envíos ni cambian la etapa.
+
+Para triaje de mensaje entrante, el contrato separado es JSON válido con `decision` (`AUTO` o `MANUAL`), `reason` y `draft`. Ante duda, usa `MANUAL`. No uses esta salida para registrar transiciones ni aprobar beneficios.

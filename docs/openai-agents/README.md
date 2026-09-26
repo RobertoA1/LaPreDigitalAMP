@@ -11,7 +11,9 @@ Estas instrucciones se pueden copiar en la configuración de agentes de OpenAI p
 - **Idioma:** español de Perú; mensajes cortos, respetuosos y con una sola pregunta o llamada a la acción.
 - **Entrada:** contexto estructurado que entrega el AMP: etapa, perfil vigente del datamart, MCE, consentimiento, últimos mensajes, campañas y ofertas aprobadas, actividad académica si procede, fecha local de Lima. No colocar expedientes completos ni credenciales en las instrucciones.
 - **Herramientas:** en la plataforma, iniciar en modo lectura/borrador. Para una futura conexión por funciones, exponer únicamente `read_contact`, `read_conversation`, `read_approved_campaigns`, `read_academic_summary` y `propose_action`. Las acciones reales (`send_message`, `update_contact`, `approve_offer`, `mark_admitted`) siguen en el backend con validación de permisos, idempotencia, consentimiento, horario y auditoría. Ningún agente obtiene una herramienta directa para aprobar descuentos o modificar pagos.
-- **Salida de prueba:** JSON con `action` (`DRAFT`, `AUTO_REPLY_CANDIDATE`, `ESCALATE`, `WAIT`, `STOP`), `channel`, `draft`, `reason`, `facts_used`, `needs_approval`. El backend decide el envío; nunca asumir que emitir texto equivale a enviar.
+- **Salida del agente de etapa en AMP:** JSON validado por Zod con `draft`, `nextAction`, `priority`, `priorityReason`, `missingFields`, `proposalType`, `needsApproval` y `factsUsed`. La prioridad del lead y los campos faltantes se recalculan con reglas del backend; la IA no confirma pagos ni modifica etapas. Las propuestas de beneficios quedan sujetas a aprobación del AMP.
+- **Salida del triaje entrante:** JSON validado con `decision` (`AUTO` o `MANUAL`), `reason` y `draft`. La lista determinista del servidor limita qué respuestas se pueden enviar; el modelo no puede convertir una consulta sensible en auto-respuesta.
+- **Salida del Radar:** usa el contrato estructurado del agente de etapa, pero el borrador queda en revisión humana y el Radar nunca lo envía por sí solo.
 - **Control común:** añadir el texto de [reglas-comunes.md](reglas-comunes.md) antes de la instrucción específica del agente.
 
 ## Bases de conocimiento que debe preparar la empresa
@@ -38,4 +40,3 @@ Cargar archivos **aprobados, fechados y sin datos personales**. Mantener version
 3. Para cada rol, crear un agente con el nombre indicado, modelo admitido e instrucciones de `reglas-comunes.md` más su archivo de rol. Conectar solo las bases que figuran en la tabla. Dejar las herramientas de escritura desactivadas en estas pruebas.
 4. Probar saludos, objeciones de precio, solicitud de beca, cancelación, quejas, usuario admitido, solicitud de dejar de recibir mensajes y respuesta fuera del horario. Confirmar que los casos sensibles producen `ESCALATE` o `STOP`.
 5. Para integrar agentes alojados en una versión futura, guardar identificadores por rol, conectar las funciones con autorización del backend y conservar la decisión final de envío en el AMP. No sustituir las reglas deterministas de consentimiento, horario, límites de oferta y admisión.
-

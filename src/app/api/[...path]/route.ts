@@ -12,6 +12,7 @@ import { receiveMessage, sendMessage } from '@/lib/messaging';
 import { aiConfig } from '@/lib/ai';
 import { radarConfig, openInsights, dismissInsight, sendInsight } from '@/lib/radar';
 import { prioritize } from '@/lib/priorities';
+import { assessPayerOnboarding, eventDetails } from '@/lib/stage-agents';
 import { stages, type Stage, type Channel } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -76,11 +77,48 @@ export async function GET(req: NextRequest, context: { params: Promise<{ path: s
         db.amp_approvals.findAll({ where: { contactId: { [Op.in]: ids }, status: 'PENDING' } }),
         db.amp_exam_entries.findAll({ where: { matchedContactId: { [Op.in]: ids }, nonAdmittedRank: { [Op.lte]: 10 }, result: 'NOT_ADMITTED' } })
       ]) : [[], [], []];
+      const agentEvents = ids.length && ['BUYER', 'LEAD', 'PAYER'].includes(stage || '') ? plainMany<any>(await db.amp_events.findAll({
+        where: { contactId: { [Op.in]: ids }, type: { [Op.in]: ['BUYER_INTENT_SIGNAL', 'LEAD_NEGOTIATION_PROFILE', 'PAYER_ONBOARDING'] } },
+        order: [['createdAt', 'DESC']], limit: Math.max(100, ids.length * 20)
+      })) : [];
       const insightById = new Map<number, any>();
       for (const item of plainMany<any>(insights).sort((a, b) => (b.phase === 'MANUAL_REPLY' ? 1 : 0) - (a.phase === 'MANUAL_REPLY' ? 1 : 0) || Number(b.alert) - Number(a.alert) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())) if (!insightById.has(item.contactId)) insightById.set(item.contactId, item);
       const approvalIds = new Set(plainMany<any>(approvals).map(item => item.contactId));
       const topIds = new Set(plainMany<any>(topEntries).map(item => item.matchedContactId));
-      const prioritized = rows.map(c => prioritize(c, insightById.get(c.id) || null, approvalIds.has(c.id), topIds.has(c.id))).sort((a, b) => b.priorityScore - a.priorityScore || new Date(b.lastActivityAt || b.createdAt).getTime() - new Date(a.lastActivityAt || a.createdAt).getTime());
+      const summaries = new Map<number, { priority: string | null; summary: string }>();
+      const buyerSignals = new Map<number, string[]>();
+      for (const row of agentEvents) {
+        const details = eventDetails(row.detail);
+        const contactId = Number(row.contactId);
+        if (row.type === 'BUYER_INTENT_SIGNAL') {
+          const signals = buyerSignals.get(contactId) || [];
+          if (signals.length < 2) signals.push(`${details.intentType || 'INTENCIÓN'}: “${String(details.evidence || '').slice(0, 120)}” → ${details.funnelRecommendation || details.recommendation || 'Revisar paso Buyer → Lead.'}`);
+          buyerSignals.set(contactId, signals);
+        } else if (!summaries.has(contactId)) {
+          if (row.type === 'LEAD_NEGOTIATION_PROFILE') {
+            const missing = Array.isArray(details.missingFields) && details.missingFields.length ? `Faltan: ${details.missingFields.join(', ')}.` : 'Perfil esencial completo.';
+            summaries.set(contactId, { priority: details.priority || null, summary: `${details.priority || 'SIN PRIORIDAD'} — ${details.priorityReason || 'Sin evaluación.'} ${missing} Siguiente: ${details.nextAction || 'revisar conversación.'}` });
+          } else if (row.type === 'PAYER_ONBOARDING') {
+            const states = [`Activación: ${details.activation || 'NO_DATA'}`, `acceso: ${details.access || 'NO_DATA'}`, `diagnóstico: ${details.diagnostic || 'NO_DATA'}`, `ruta: ${details.studyPath || 'NO_DATA'}`, `actividad: ${details.firstActivity || 'NO_DATA'}`];
+            summaries.set(contactId, { priority: details.earlyInactivity ? 'ALTA' : null, summary: `${states.join(' · ')}. ${details.recommendation || 'Onboarding pendiente de datos verificables.'}` });
+          }
+        }
+      }
+      const prioritized = rows.map(c => {
+        const item = prioritize(c, insightById.get(c.id) || null, approvalIds.has(c.id), topIds.has(c.id));
+        if (c.stage === 'BUYER') return { ...item, agentPriority: null, agentSummary: buyerSignals.get(c.id)?.join(' · ') || 'Aún no se registran señales comerciales entrantes.' };
+        if (c.stage === 'LEAD') {
+          const profile = summaries.get(c.id);
+          return { ...item, agentPriority: profile?.priority || null, agentSummary: profile?.summary || 'Perfil progresivo pendiente de una interacción entrante.' };
+        }
+        if (c.stage === 'PAYER') {
+          const assessment = summaries.get(c.id);
+          const computed = assessPayerOnboarding(c, []);
+          const states = [`Activación: ${computed.activation}`, `acceso: ${computed.access}`, `diagnóstico: ${computed.diagnostic}`, `ruta: ${computed.studyPath}`, `actividad: ${computed.firstActivity}`];
+          return { ...item, agentPriority: assessment?.priority || (computed.earlyInactivity ? 'ALTA' : null), agentSummary: assessment?.summary || `${states.join(' · ')}. ${computed.nextAction}` };
+        }
+        return item;
+      }).sort((a, b) => b.priorityScore - a.priorityScore || new Date(b.lastActivityAt || b.createdAt).getTime() - new Date(a.lastActivityAt || a.createdAt).getTime());
       return ok({ contacts: prioritized, attention: prioritized.filter(c => c.requiresAttention), waiting: prioritized.filter(c => !c.requiresAttention) });
     }
     if (path === 'contact') {
@@ -198,14 +236,15 @@ export async function POST(req: NextRequest, context: { params: Promise<{ path: 
       const row = plain<any>(await db.amp_approvals.findByPk(data.id));
       if (!row || row.status !== 'PENDING') return fail('Solicitud ya resuelta o inexistente');
       const payload = JSON.parse(row.payload);
-      if (data.decision === 'APPROVED' && row.kind === 'DISCOUNT' && (data.discountPercent == null || data.discountPercent <= 0)) return fail('El descuento debe ser mayor a 0 y máximo 30 %.');
-      if (data.decision === 'APPROVED' && (row.kind === 'SCHOLARSHIP_REVIEW' || row.kind === 'OFFER_REVIEW') && !data.offerType) return fail('Selecciona beca, semibeca o descuento.');
-      if (data.decision === 'APPROVED' && data.offerType === 'DISCOUNT' && (data.discountPercent == null || data.discountPercent <= 0)) return fail('Indica el porcentaje de descuento.');
-      if (data.decision === 'APPROVED' && (row.kind === 'DISCOUNT' || data.offerType === 'DISCOUNT') && await db.amp_coupons.findOne({ where: { contactId: row.contactId } })) return fail('Este usuario ya recibió un cupón; máximo uno por usuario.');
-      const [updated] = await db.amp_approvals.update({ status: data.decision, reason: data.reason, decidedBy: String(user.id), decidedAt: new Date(), payload: JSON.stringify({ ...payload, offerType: data.offerType || row.kind, discountPercent: data.discountPercent }) }, { where: { id: data.id, status: 'PENDING' } });
+      const requiresOfferChoice = ['DISCOUNT', 'SCHOLARSHIP_REVIEW', 'OFFER_REVIEW'].includes(row.kind);
+      const selectedOffer = data.offerType || (row.kind === 'DISCOUNT' ? 'DISCOUNT' : undefined);
+      if (data.decision === 'APPROVED' && requiresOfferChoice && !selectedOffer) return fail('Selecciona beca, semibeca o descuento.');
+      if (data.decision === 'APPROVED' && selectedOffer === 'DISCOUNT' && (data.discountPercent == null || data.discountPercent <= 0)) return fail('Indica un descuento mayor a 0 y máximo 30 %.');
+      if (data.decision === 'APPROVED' && selectedOffer === 'DISCOUNT' && await db.amp_coupons.findOne({ where: { contactId: row.contactId } })) return fail('Este usuario ya recibió un cupón; máximo uno por usuario.');
+      const [updated] = await db.amp_approvals.update({ status: data.decision, reason: data.reason, decidedBy: String(user.id), decidedAt: new Date(), payload: JSON.stringify({ ...payload, offerType: selectedOffer || row.kind, discountPercent: selectedOffer === 'DISCOUNT' ? data.discountPercent : undefined }) }, { where: { id: data.id, status: 'PENDING' } });
       if (!updated) return fail('La solicitud ya fue resuelta');
-      if (data.decision === 'APPROVED' && ['DISCOUNT', 'SCHOLARSHIP_REVIEW', 'OFFER_REVIEW'].includes(row.kind)) {
-        if (row.kind === 'DISCOUNT' || data.offerType === 'DISCOUNT') await db.amp_coupons.create({ code: `LPD-${row.contactId}-${data.id}`, contactId: row.contactId, approvalId: data.id, discountPercent: data.discountPercent, scope: 'ONE_PAYMENT', expiresAt: new Date(Date.now() + 30 * 86400000), createdAt: new Date() });
+      if (data.decision === 'APPROVED' && requiresOfferChoice) {
+        if (selectedOffer === 'DISCOUNT') await db.amp_coupons.create({ code: `LPD-${row.contactId}-${data.id}`, contactId: row.contactId, approvalId: data.id, discountPercent: data.discountPercent, scope: 'ONE_PAYMENT', expiresAt: new Date(Date.now() + 30 * 86400000), createdAt: new Date() });
         await enqueue('OFFER', row.contactId, { approvalId: data.id }, new Date(), `offer:${data.id}`);
       }
       await event(row.contactId, 'APPROVAL', `${row.kind}: ${data.decision}.`, 'OPERATOR', String(user.id), { reason: data.reason });

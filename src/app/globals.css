@@ -10,4 +10,6 @@
 
 .radar-controls{display:flex;gap:9px;margin:0 0 20px}
 
+.agent-summary{display:block;min-width:220px;max-width:360px;white-space:normal;margin-top:5px;color:#69778b;line-height:1.45}
+
 .stage-filter{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 17px}.stage-filter>span{color:#8793a5;font-size:12px}.stage-bucket{margin-bottom:18px}.stage-bucket.urgent{border-top:3px solid #ff9a69}.reason-cell{min-width:180px;color:#69778b;font-size:12px}.row-actions{display:flex;align-items:center;gap:7px;white-space:nowrap}.row-actions .button{font-size:10px;padding:8px 10px}.radar-person .button{margin-left:auto;font-size:11px}.live-pill{display:inline-flex;align-items:center;gap:6px;color:#9ca6b5;font-size:10px;font-weight:800;letter-spacing:.06em}.live-pill>span{width:7px;height:7px;border-radius:50%;background:#aeb8c4}.live-pill.connected{color:#209f78}.live-pill.connected>span{background:#26bc8d;box-shadow:0 0 0 3px #d9f8ed}@media(max-width:900px){.stage-filter{display:block}.stage-filter>span{display:block;margin-top:9px}.radar-person .button{margin:8px 0 0}}
