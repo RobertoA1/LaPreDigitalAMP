@@ -2,6 +2,7 @@ import { tables } from './db';
 import { OAuth2Client } from 'google-auth-library';
 import { contact, event } from './contacts';
 import type { Channel } from './types';
+import { lifecycleAutomaticBlock, lifecycleContext } from './lifecycle';
 
 export function peruHour(now = new Date()) {
   return Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Lima', hour: '2-digit', hour12: false }).format(now));
@@ -19,6 +20,17 @@ export async function sendMessage(contactId: number, channel: Channel, body: str
   if (!c) throw new Error('Contacto no encontrado');
   if (c.admissionStatus === 'ADMITTED' && c.stage === 'TURNED') throw new Error('Recuperación detenida: ingresó a la universidad');
   if (c.contactPaused) throw new Error('El contacto está pausado');
+if (c.stage === 'TURNED' && !replying) {
+    const context = await lifecycleContext(contactId);
+    if (context && !context.assessment.window.allowed) {
+      const latest = await tables().amp_messages.findOne({ where: { contactId, recipientKind: 'STUDENT' }, order: [['createdAt', 'DESC'], ['id', 'DESC']] });
+      if (senderType !== 'OPERATOR' || latest?.get('direction') !== 'IN') throw new Error(context.assessment.window.reason);
+    }
+  }
+  if (automatic && !replying) {
+    const blocked = await lifecycleAutomaticBlock(contactId);
+    if (blocked) throw new Error(blocked);
+  }
   const permission = messagePermission(c, channel, recipientKind);
   if (permission === 'NO_CONSENT') throw new Error(`Sin autorización para ${channel}`);
   if (permission === 'NO_ADDRESS') throw new Error(`Falta dirección para ${channel}`);
@@ -70,7 +82,8 @@ export async function sendToBoth(contactId: number, channel: Channel, body: stri
   const c = await contact(contactId);
   if (!c) throw new Error('Contacto no encontrado');
   const student = await sendMessage(contactId, channel, body, 'AGENT', senderId, automatic, replying, 'STUDENT');
-  if (messagePermission(c, channel, 'GUARDIAN') === 'ALLOWED') {
+if (messagePermission(c, channel, 'GUARDIAN') === 'ALLOWED') {
+    const guardianBody = c.stage === 'CUSTOMER' ? `Hola. Le contactamos como apoderado autorizado de ${c.fullName}. ${body.replace(/^Hola,[^.]+\.\s*/, '')} Puede solicitar al equipo una revisión del acompañamiento del estudiante.` : body;
     try { await sendMessage(contactId, channel, guardianBody, 'AGENT', senderId, automatic, replying, 'GUARDIAN'); }
     catch (error) { await event(contactId, 'GUARDIAN_DELIVERY_ERROR', `No se pudo contactar al apoderado por ${channel}.`, 'SYSTEM', senderId, { error: String(error) }); }
   }

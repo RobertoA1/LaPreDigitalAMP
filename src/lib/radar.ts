@@ -5,6 +5,8 @@ import { channelFor } from './agents';
 import { generate } from './ai';
 import { agents, type Channel, type Contact } from './types';
 import { parseStructuredProposal, promptForStage } from './stage-agents';
+import { isLifecycle, serviceSignal, lifecycleAssessment, recoveryWindow } from './lifecycle-policy';
+import { lifecycleContext, lifecycleAutomaticBlock } from './lifecycle';
 
 type ConversationMessage = { id: number; direction: string; body: string; channel: string; recipientKind?: string; createdAt: string | Date };
 export type ConversationAssessment = { phase: string; silenceDays: number; deadlineAt: Date | null; sourceMessageId: number; alert: boolean };
@@ -47,6 +49,10 @@ export async function scanRadar(now = new Date()) {
   for (const base of all) {
     const c = await contact(base.id);
     if (!c) continue;
+    if (isLifecycle(c.stage) && await lifecycleAutomaticBlock(c.id)) {
+      await db.amp_insights.update({ status: 'SUPERSEDED', updatedAt: now }, { where: { contactId: c.id, status: 'OPEN', phase: { [Op.notIn]: ['MANUAL_REPLY', 'LIFECYCLE'] } } });
+      continue;
+    }
     if (c.contactPaused || (c.stage === 'TURNED' && c.admissionStatus === 'ADMITTED')) {
       await db.amp_insights.update({ status: 'SUPERSEDED', updatedAt: now }, { where: { contactId: c.id, status: 'OPEN', phase: { [Op.ne]: 'MANUAL_REPLY' } } });
       continue;
@@ -54,6 +60,7 @@ export async function scanRadar(now = new Date()) {
     const messages = plainMany<ConversationMessage>(await db.amp_messages.findAll({ where: { contactId: c.id }, order: [['createdAt', 'ASC'], ['id', 'ASC']] }));
     const assessment = assessConversation(messages, maxDays, now, c.stageChangedAt);
     if (!assessment) continue;
+    if (isLifecycle(c.stage) && assessment.phase !== 'REPLY' && await db.amp_insights.findOne({ where: { contactId: c.id, phase: 'LIFECYCLE', status: 'OPEN' } })) continue;
     if (assessment.phase === 'REPLY' && await db.amp_inbound_triage.findOne({ where: { messageId: assessment.sourceMessageId, decision: 'MANUAL' } })) continue;
     const key = insightKey(c, assessment, maxDays);
     if (await db.amp_insights.findOne({ where: { dedupeKey: key } })) continue;
@@ -77,6 +84,12 @@ function strategy(c: Contact, assessment: ConversationAssessment, messages: Conv
   return 'Último intento respetuoso antes del plazo máximo; ofrecer dejar abierta la conversación sin presionar.';
 }
 export function fallbackDraft(c: Contact, phase: string, messages: ConversationMessage[]) {
+  if (isLifecycle(c.stage) && (phase === 'REPLY' || phase.startsWith('FOLLOWUP_'))) {
+    const a = lifecycleAssessment(c, [], messages, []);
+    if (phase === 'REPLY' && serviceSignal(messages.filter(m => m.direction === 'IN').at(-1)?.body || '')) return a.draft || '';
+    if (c.stage === 'TURNED') return a.draft || `Hola, ${c.fullName.split(' ')[0]}. Un operador puede revisar tu consulta. ¿Qué necesitas aclarar?`;
+    if (phase === 'REPLY') return `Hola, ${c.fullName.split(' ')[0]}. Revisaremos tu consulta con el equipo de fidelización. ¿Qué dificultad necesitas que atendamos?`;
+  }
   const first = c.fullName.split(' ')[0];
   const lastInbound = [...messages].reverse().find(message => message.direction === 'IN')?.body?.toLowerCase() || '';
   if (phase === 'REPLY' && /precio|caro|pago|cuota|descuento|beca/.test(lastInbound)) return `Hola, ${first}. Gracias por consultar. Puedo ayudarte a comparar los planes vigentes de LaPreDigital. Si necesitas apoyo económico, un operador puede revisar tu caso antes de ofrecerte algo. ¿Prefieres conocer la opción mensual o anual?`;
@@ -105,15 +118,17 @@ export async function runRadar(contactId: number, expected: { key: string; sourc
   const db = tables();
   const c = await contact(contactId);
   if (!c || c.contactPaused || (c.stage === 'TURNED' && c.admissionStatus === 'ADMITTED')) return { skipped: true };
+  if (isLifecycle(c.stage) && await lifecycleAutomaticBlock(contactId)) return { skipped: true };
   const messages = plainMany<ConversationMessage>(await db.amp_messages.findAll({ where: { contactId }, order: [['createdAt', 'ASC'], ['id', 'ASC']] }));
   const currentMax = (await radarConfig()).maxDays;
   const assessment = assessConversation(messages, currentMax, now, c.stageChangedAt);
+  if (isLifecycle(c.stage) && assessment?.phase !== 'REPLY' && await db.amp_insights.findOne({ where: { contactId, phase: 'LIFECYCLE', status: 'OPEN' } })) return { skipped: true };
   if (assessment?.phase === 'REPLY' && await db.amp_inbound_triage.findOne({ where: { messageId: assessment.sourceMessageId, decision: 'MANUAL' } })) return { manual: true };
   if (!assessment || assessment.sourceMessageId !== expected.sourceMessageId || assessment.phase !== expected.phase || currentMax !== expected.maxDays || insightKey(c, assessment, currentMax) !== expected.key) return { stale: true };
   if (await db.amp_insights.findOne({ where: { dedupeKey: expected.key } })) return { duplicate: true };
   const advice = strategy(c, assessment, messages);
   let draft = fallbackDraft(c, assessment.phase, messages), provider = 'RULES', model = 'RULES';
-  if (draft) {
+  if (draft && !isLifecycle(c.stage)) {
     try {
       if (['BUYER', 'LEAD', 'PAYER'].includes(c.stage)) {
         const result = await generate(`${promptForStage(c.stage)}\n\nEres también el Radar transversal. Redacta solo un borrador breve para revisión humana; NO lo envíes. Devuelve el objeto JSON estructurado de la etapa.`, JSON.stringify({ phase: assessment.phase, silenceDays: assessment.silenceDays, stage: c.stage, name: c.fullName, career: c.career, university: c.university, plan: c.plan, strategy: advice, recentMessages: messages.slice(-8).map(m => ({ direction: m.direction, body: m.body })) }));
@@ -128,7 +143,7 @@ export async function runRadar(contactId: number, expected: { key: string; sourc
   const latestNow = plain<any>(await db.amp_messages.findOne({ where: { contactId, recipientKind: 'STUDENT' }, order: [['createdAt', 'DESC'], ['id', 'DESC']] }));
   const freshContact = await contact(contactId);
   if (!latestNow || latestNow.id !== assessment.sourceMessageId || !freshContact || freshContact.stage !== c.stage || freshContact.contactPaused || (freshContact.stage === 'TURNED' && freshContact.admissionStatus === 'ADMITTED')) return { stale: true };
-  await db.amp_insights.update({ status: 'SUPERSEDED', updatedAt: now }, { where: { contactId, status: 'OPEN' } });
+  await db.amp_insights.update({ status: 'SUPERSEDED', updatedAt: now }, { where: { contactId, status: 'OPEN', ...(isLifecycle(c.stage) ? { phase: { [Op.ne]: 'LIFECYCLE' } } : {}) } });
   const insight = await db.amp_insights.create({ dedupeKey: expected.key, contactId, stage: c.stage, channel: suggestedChannel(c, messages), phase: assessment.phase, status: 'OPEN', alert: assessment.alert, silenceDays: assessment.silenceDays, deadlineAt: assessment.deadlineAt, sourceMessageId: assessment.sourceMessageId, draft, strategy: advice, provider, model, createdAt: now, updatedAt: now });
   await event(contactId, assessment.phase === 'STOP' ? 'FOLLOWUP_STOP' : assessment.alert ? 'SILENCE_ALERT' : 'RADAR_INSIGHT', assessment.phase === 'STOP' ? advice : `Radar: ${advice}`, 'AGENT', 'Radar', { insightId: insight.get('id'), silenceDays: assessment.silenceDays });
   return { insightId: insight.get('id'), phase: assessment.phase };
@@ -153,8 +168,14 @@ export async function sendInsight(id: number, actorId: number) {
   if (!row || row.status !== 'OPEN' || !row.draft || !row.channel || row.phase === 'WAIT' || row.phase === 'STOP') throw new Error('Borrador no disponible para envío');
   const c = await contact(row.contactId);
   if (!c || c.stage !== row.stage || c.contactPaused || (c.stage === 'TURNED' && c.admissionStatus === 'ADMITTED')) throw new Error('El perfil cambió; revisa la sugerencia');
+  if (row.phase === 'LIFECYCLE') {
+    const fresh = await lifecycleContext(c.id);
+    if (!fresh || fresh.key !== row.dedupeKey) throw new Error('La evidencia cambió; solicita un nuevo análisis del agente');
+  }
+  if (c.stage === 'TURNED' && row.phase !== 'MANUAL_REPLY' && !recoveryWindow(c).allowed) throw new Error('El plazo de recuperación terminó o la fecha de baja no está validada');
+  if (isLifecycle(c.stage) && row.phase !== 'MANUAL_REPLY' && await lifecycleAutomaticBlock(c.id)) throw new Error('Resuelve la revisión de servicio antes del seguimiento');
   const latest = plain<any>(await db.amp_messages.findOne({ where: { contactId: row.contactId, recipientKind: 'STUDENT' }, order: [['createdAt', 'DESC'], ['id', 'DESC']] }));
-  if (!latest || latest.id !== row.sourceMessageId) throw new Error('Hay mensajes nuevos; espera la nueva recomendación');
+  if ((latest?.id || 0) !== row.sourceMessageId) throw new Error('Hay mensajes nuevos; espera la nueva recomendación');
   const [claimed] = await db.amp_insights.update({ status: 'SENDING', updatedAt: new Date() }, { where: { id, status: 'OPEN' } });
   if (!claimed) throw new Error('Otro operador ya está atendiendo la sugerencia');
   try {

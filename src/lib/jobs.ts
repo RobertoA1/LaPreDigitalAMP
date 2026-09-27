@@ -9,6 +9,8 @@ import { scanRadar, runRadar } from './radar';
 import { processInbound } from './inbound';
 import type { Contact, Channel } from './types';
 import { assessPayerOnboarding, shouldSendRenewalNotice } from './stage-agents';
+import { isLifecycle, recoveryWindow, reactivated } from './lifecycle-policy';
+import { lifecycleAutomaticBlock, prepareLifecycle } from './lifecycle';
 
 export async function enqueue(kind: string, contactId: number | null, payload: object = {}, runAt = new Date(), dedupeKey?: string) {
   const db = tables();
@@ -38,7 +40,7 @@ export async function scanSchedules(now = new Date()) {
     if (!c) continue;
     const stageVersion = await syncStage(c);
     if (c.contactPaused || c.admissionStatus === 'ADMITTED') continue;
-    if (!(c.stage === 'TURNED' && c.stageChangedAt && Date.now() - new Date(c.stageChangedAt).getTime() > 30 * 86400000)) {
+    if (recoveryWindow(c, now).allowed) {
       await enqueue('AGENT', c.id, {}, now, `stage:${c.sourceKey}:${stageVersion}`); scheduled++;
     }
     if ((c.stage === 'PAYER' || c.stage === 'CUSTOMER') && c.renewalAt && !['RENEWED', 'CANCELLED'].includes(c.paymentStatus || '')) {
@@ -62,6 +64,9 @@ export async function scanSchedules(now = new Date()) {
     }
     const limaDay = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Lima', weekday: 'short' }).format(now);
     const limaDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+    if (isLifecycle(c.stage)) {
+      await enqueue('LIFECYCLE', c.id, {}, now, `lifecycle-daily:${c.id}:${limaDate}`);
+    }
     if (c.stage === 'CUSTOMER' && limaDay === 'Mon') {
       await enqueue('ACADEMIC', c.id, {}, now, `academic:${c.id}:${limaDate}`); scheduled++;
     }
@@ -114,11 +119,17 @@ export async function processNextJob() {
   if (!claimed) return true;
   try {
     const payload = JSON.parse(candidate.payload || '{}');
-    if (!['ANALYZE', 'INBOUND'].includes(candidate.kind) && !(candidate.kind === 'PAYER_ONBOARDING' && payload.mode === 'INACTIVITY_CHECK') && !payload.inbound && !withinSendHours(now)) {
+if (!['ANALYZE', 'INBOUND', 'LIFECYCLE'].includes(candidate.kind) && !(candidate.kind === 'PAYER_ONBOARDING' && payload.mode === 'INACTIVITY_CHECK') && !payload.inbound && !withinSendHours(now)) {
       await db.amp_jobs.update({ status: 'PENDING', runAt: nextSendWindow(now), leaseUntil: null }, { where: { id: candidate.id } });
       return true;
     }
-    if (candidate.kind === 'INBOUND') await processInbound(payload.messageId);
+    if (['OFFER', 'CAMPAIGN', 'RENEWAL', 'SIMULACRO'].includes(candidate.kind) && await lifecycleAutomaticBlock(candidate.contactId)) {
+      await db.amp_jobs.update({ status: 'DONE', leaseUntil: null, lastError: null }, { where: { id: candidate.id } });
+      await event(candidate.contactId, 'LIFECYCLE_SEND_BLOCKED', 'Envío automático omitido por revisión de servicio o plazo de recuperación.', 'SYSTEM', 'worker');
+      return true;
+    }
+    if (candidate.kind === 'LIFECYCLE') await prepareLifecycle(candidate.contactId);
+    else if (candidate.kind === 'INBOUND') await processInbound(payload.messageId);
     else if (candidate.kind === 'ANALYZE') await runRadar(candidate.contactId, payload, now);
     else if (candidate.kind === 'AGENT' || candidate.kind === 'ACADEMIC') await runAgent(candidate.contactId, !!payload.inbound);
     else if (candidate.kind === 'PAYER_ONBOARDING') {
@@ -139,7 +150,7 @@ export async function processNextJob() {
     }
     else if (candidate.kind === 'RENEWAL') {
       const c = await contact(candidate.contactId);
-      if (c && shouldSendRenewalNotice(c, payload.expectedRenewalAt)) {
+if (c && c.renewalAt && shouldSendRenewalNotice(c, payload.expectedRenewalAt) && (c.stage !== 'CUSTOMER' || daysUntil(c.renewalAt, now) === payload.days)) {
         const channel = channelFor(c.stage, c.interestChannel);
         if (!channel) throw new Error('MCE sin conector');
         const studentBody = `Hola, ${c.fullName.split(' ')[0]}. Tu servicio LaPreDigital vence en ${payload.days} día${payload.days === 1 ? '' : 's'}. Si deseas continuar tu preparación, revisa tu renovación en la plataforma. ¿Necesitas ayuda?`;
@@ -202,6 +213,7 @@ async function syncStage(c: Contact) {
     const version = previous.version + 1;
     await db.amp_contact_state.update({ stage: c.stage, version, sourceUpdatedAt: c.sourceUpdatedAt || null }, { where: { contactId: c.id } });
     await event(c.id, 'STAGE_CHANGE', `${previous.stage} → ${c.stage} confirmado por datamart.`, 'SYSTEM', 'worker');
+    if (reactivated(previous.stage, c.stage)) await event(c.id, 'REACTIVATION_CONFIRMED', 'Reactivación confirmada por el datamart: TURNED → PAYER.', 'SYSTEM', 'worker');
     return version;
   }
   return previous.version;

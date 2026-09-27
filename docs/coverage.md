@@ -1,5 +1,7 @@
 # Cobertura funcional y próximos pasos
 
+Actualización CUSTOMER/TURNED: ver [Fidelización y reactivación](customer-turned.md). Sus ejecuciones generan borradores para revisión, con cinco días de inactividad en CUSTOMER y límite de 30 días desde la baja en TURNED, además del plazo del Radar. Los indicadores sin evidencia suficiente se muestran como limitaciones, no como métricas implementadas.
+
 | Requisito | Estado en esta entrega | Cómo comprobarlo |
 |---|---|---|
 | Dashboard IMPULSE y KPI ampliables | Implementado | `/` muestra snapshot del embudo, conversión, ingreso, cartera actual, aprobaciones y actividad. Nuevos KPI se agregan mediante nuevas proyecciones `dm_*`. |
