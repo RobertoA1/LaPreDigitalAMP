@@ -13,6 +13,8 @@ import { aiConfig } from '@/lib/ai';
 import { radarConfig, openInsights, dismissInsight, sendInsight } from '@/lib/radar';
 import { prioritize } from '@/lib/priorities';
 import { stages, type Stage, type Channel } from '@/lib/types';
+import { lifecycleContext, prepareLifecycle } from '@/lib/lifecycle';
+import { isLifecycle } from '@/lib/lifecycle-policy';
 
 export const runtime = 'nodejs';
 const fail = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
@@ -69,7 +71,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ path: s
     if (path === 'contacts') {
       const stage = req.nextUrl.searchParams.get('stage') as Stage | null;
       if (stage && !stages.includes(stage)) return fail('Etapa inválida');
-      const rows = await contacts(stage || undefined, req.nextUrl.searchParams.get('search') || undefined);
+      const baseRows = await contacts(stage || undefined, req.nextUrl.searchParams.get('search') || undefined);
+      const rows = await Promise.all(baseRows.map(async c => isLifecycle(c.stage) ? (await contact(c.id)) || c : c));
       const ids = rows.map(c => c.id);
       const [insights, approvals, topEntries] = ids.length ? await Promise.all([
         db.amp_insights.findAll({ where: { contactId: { [Op.in]: ids }, status: 'OPEN' } }),
@@ -87,7 +90,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ path: s
       const id = Number(req.nextUrl.searchParams.get('id'));
       const c = await contact(id);
       if (!c) return fail('Contacto no encontrado', 404);
-      return ok({ contact: c, history: await contactHistory(id), insights: await openInsights(id), weekly: plainMany(await db.dm_academic_weekly.findAll({ where: { contactId: id }, order: [['weekStart', 'DESC']], limit: 12 })), recommendations: await recommend(c) });
+      const lifecycle = (await lifecycleContext(id))?.assessment || null;
+      return ok({ contact: c, history: await contactHistory(id), insights: await openInsights(id), weekly: plainMany(await db.dm_academic_weekly.findAll({ where: { contactId: id }, order: [['weekStart', 'DESC']], limit: 12 })), recommendations: lifecycle ? [lifecycle.recommendation, ...lifecycle.evidence] : await recommend(c), lifecycle });
     }
     if (path === 'radar') {
       const insights = await openInsights();
@@ -138,6 +142,15 @@ export async function POST(req: NextRequest, context: { params: Promise<{ path: 
     const user = await currentUser();
     if (!user) return fail('Sesión requerida', 401);
     if (path === 'logout') { const response = ok({ ok: true }); response.cookies.delete('amp_session'); return response; }
+    if (path === 'lifecycle/resolve') {
+      const data = z.object({ contactId: z.number().int().positive(), reason: z.string().trim().min(10).max(1000) }).parse(await body(req));
+      const context = await lifecycleContext(data.contactId);
+      if (!context || !context.assessment.review) return fail('No hay revisión de servicio pendiente');
+      await event(data.contactId, 'SERVICE_REVIEW_RESOLVED', 'Operador resolvió la revisión de servicio; no confirma pagos ni cambia la etapa.', 'OPERATOR', String(user.id), { reason: data.reason });
+      await db.amp_insights.update({ status: 'DISMISSED', updatedAt: new Date() }, { where: { contactId: data.contactId, status: 'OPEN', phase: { [Op.in]: ['LIFECYCLE', 'MANUAL_REPLY'] } } });
+      await prepareLifecycle(data.contactId);
+      return ok({ ok: true });
+    }
     if (path === 'agent/run') {
       const data = z.object({ contactId: z.number().int().positive() }).parse(await body(req));
       if (!(await contact(data.contactId))) return fail('Contacto no encontrado', 404);

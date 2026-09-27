@@ -6,6 +6,7 @@ import { fallbackDraft } from './radar';
 import { sendMessage } from './messaging';
 import { agents, type Channel, type Contact } from './types';
 import { learnExplicitData } from './agents';
+import { isLifecycle, serviceSignal, declaredExitReason } from './lifecycle-policy';
 
 const modelDecision = z.object({ decision: z.enum(['AUTO', 'MANUAL']), reason: z.string().max(500), draft: z.string().max(4000) });
 export type InboundDecision = { decision: 'AUTO' | 'MANUAL'; reason: string; reply: string | null; optOut?: boolean };
@@ -18,6 +19,8 @@ export function decideInbound(message: string, c: Pick<Contact, 'fullName' | 'st
   const first = c.fullName.split(' ')[0];
   if (optOut.test(value)) return { decision: 'MANUAL', reason: 'El contacto pidió detener comunicaciones; se pausa el contacto y se alerta al operador.', reply: null, optOut: true };
   if (c.contactPaused || (c.stage === 'TURNED' && c.admissionStatus === 'ADMITTED')) return { decision: 'MANUAL', reason: 'El perfil requiere revisión humana antes de cualquier respuesta.', reply: null };
+  const signal = isLifecycle(c.stage) ? serviceSignal(raw) : null;
+  if (signal) return { decision: 'MANUAL', reason: `${signal}: requiere revisión humana de fidelización o reactivación; detener comunicaciones automáticas hasta resolver el caso.`, reply: null };
   if (sensitive.test(value)) return { decision: 'MANUAL', reason: 'La consulta necesita datos vigentes o una decisión autorizada por un operador.', reply: null };
   if (/^(hola|buenas|buenos dias|buenas tardes|buenas noches|holi)[.!? ]*$/.test(value)) return { decision: 'AUTO', reason: 'Saludo simple y respuesta informativa segura.', reply: `Hola, ${first}. Soy el ${agents[c.stage]} de LaPreDigital. ¿En qué puedo ayudarte con tu preparación?` };
   if (/^(gracias|muchas gracias|ok|de acuerdo|perfecto)[.!? ]*$/.test(value)) return { decision: 'AUTO', reason: 'Agradecimiento o confirmación simple.', reply: `Con gusto, ${first}. Si necesitas algo más sobre tu preparación, escríbenos por aquí.` };
@@ -35,13 +38,19 @@ export async function processInbound(messageId: number) {
   if (!c) throw new Error('Contacto entrante no disponible');
   if (c.stage === 'BUYER' || c.stage === 'LEAD') await learnExplicitData(c.id, c, incoming.body);
   let decision = decideInbound(incoming.body, c);
+  if (isLifecycle(c.stage) && serviceSignal(incoming.body)) {
+    const exists = await db.amp_events.findOne({ where: { contactId: c.id, type: 'SERVICE_REVIEW_REQUIRED', actorId: `message:${messageId}` } });
+    if (!exists) await event(c.id, 'SERVICE_REVIEW_REQUIRED', 'Revisión humana pendiente por una declaración del contacto.', 'CONTACT', `message:${messageId}`, { messageId, signal: serviceSignal(incoming.body), declaration: incoming.body });
+  }
+  const exitReason = c.stage === 'TURNED' ? declaredExitReason(incoming.body) : null;
+  if (exitReason && !(await db.amp_events.findOne({ where: { contactId: c.id, type: 'TURNED_REASON', actorId: `message:${messageId}` } }))) await event(c.id, 'TURNED_REASON', 'Motivo de baja declarado por el contacto; no inferido.', 'CONTACT', `message:${messageId}`, { messageId, declaration: exitReason });
   const history = plainMany<any>(await db.amp_messages.findAll({ where: { contactId: c.id }, order: [['createdAt', 'DESC'], ['id', 'DESC']], limit: 8 }));
   let suggestedDraft = fallbackDraft(c, 'REPLY', [...history].reverse());
   try {
     const result = await generate('Eres el evaluador de respuesta entrante de LaPreDigital. Devuelve solo JSON válido con decision AUTO o MANUAL, reason y draft. Prioriza MANUAL ante cualquier duda, dato cambiante, pago, oferta, beca, queja, cancelación, datos personales o resultado de admisión. No inventes hechos ni promociones. Un AUTO solo sirve para saludo o un dato institucional confirmado.', JSON.stringify({ stage: c.stage, profile: { career: c.career, plan: c.plan }, incoming: incoming.body, recentMessages: history.map(m => ({ direction: m.direction, body: m.body })) }));
     const parsed = modelDecision.parse(JSON.parse(result.text.replace(/^```(?:json)?\s*|\s*```$/g, '')));
     if (decision.decision === 'AUTO' && parsed.decision === 'MANUAL') decision = { decision: 'MANUAL', reason: `El modelo solicitó revisión humana: ${parsed.reason}`, reply: null };
-    if (parsed.draft && !/\b(?:descuento|beca|semibeca|cup[oó]n|promoci[oó]n|\d{1,3}\s?%)\b/i.test(parsed.draft)) suggestedDraft = parsed.draft;
+    if (!isLifecycle(c.stage) && parsed.draft && !/\b(?:descuento|beca|semibeca|cup[oó]n|promoci[oó]n|\d{1,3}\s?%)\b/i.test(parsed.draft)) suggestedDraft = parsed.draft;
   } catch { /* Sin modelo o salida inválida: prevalece la regla conservadora. */ }
   if (decision.optOut) {
     await db.amp_overrides.create({ contactId: c.id, field: 'contactPaused', value: 'true', confidence: 1, source: 'AGENT', actorId: 'inbound-triage', reason: 'Solicitud explícita de no recibir comunicaciones.', createdAt: new Date() });

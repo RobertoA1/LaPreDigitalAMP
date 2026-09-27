@@ -1,5 +1,7 @@
 # LaPreDigital AMP
 
+CUSTOMER utiliza ahora el **Agente de Fidelización** y TURNED el **Asistente de Reactivación (propuesta)**. Ambos preparan borradores revisables con evidencia del perfil. Las reglas de inactividad, revisión humana y plazos, junto con los límites de los datos actuales, se describen en [docs/customer-turned.md](docs/customer-turned.md). Estas mejoras no requieren cambios de esquema ni migraciones.
+
 Aplicación local de orquestación para el recorrido **Universo → Buyer → Lead → Payer → Customer → Turned → Payer** de LaPreDigital. Implementada con Next.js 16, React, TypeScript y Sequelize 6. SQL Server 2022 es el motor operativo previsto; el modo Demo usa una base SQLite aislada con contactos sintéticos.
 
 ## Inicio rápido: Demo

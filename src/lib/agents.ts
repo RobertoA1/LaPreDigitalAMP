@@ -3,6 +3,8 @@ import { contact, event, recommend } from './contacts';
 import { agents, type Channel } from './types';
 import { generate } from './ai';
 import { sendToBoth } from './messaging';
+import { isLifecycle } from './lifecycle-policy';
+import { prepareLifecycle } from './lifecycle';
 
 export function channelFor(stage: string, interest: string | null): Channel | null {
   if (stage === 'BUYER') return null;
@@ -22,12 +24,12 @@ function template(stage: string, name: string, career: string | null, plan: stri
 export async function runAgent(contactId: number, inbound = false) {
   const c = await contact(contactId);
   if (!c) throw new Error('Contacto no encontrado');
-  if (c.stage === 'TURNED' && c.admissionStatus === 'ADMITTED') return { skipped: 'Ingresó a la universidad' };
+  if (isLifecycle(c.stage)) return prepareLifecycle(contactId);
   const db = tables();
   const messages = plainMany<any>(await db.amp_messages.findAll({ where: { contactId }, order: [['createdAt', 'DESC']], limit: 8 }));
   if (messages[0]?.direction === 'IN') return { skipped: 'La respuesta entrante está en evaluación o requiere atención manual.' };
   const recs = await recommend(c);
-  const weekly = c.stage === 'CUSTOMER' ? plainMany<any>(await db.dm_academic_weekly.findAll({ where: { contactId }, order: [['weekStart', 'DESC']], limit: 2 })) : [];
+  const weekly: any[] = [];
   const current = weekly[0], previous = weekly[1];
   const academicSummary = current ? `Esta semana completaste ${current.activitiesCompleted || 0} de ${current.activitiesPlanned || 0} actividades y realizaste ${current.simulations || 0} simulacros.${previous && current.score != null && previous.score != null ? ` Tu puntaje cambió de ${previous.score} a ${current.score}.` : ''}` : 'Aún no tenemos un reporte semanal registrado.';
   const system = `Eres el ${agents[c.stage]} de LaPreDigital, academia 100% digital. Redacta un solo mensaje breve, honesto y personalizado en español peruano. No inventes precios, resultados, becas ni descuentos. No prometas ingreso universitario. Usa los datos del perfil y evita repetir mensajes. No reveles datos sensibles. No modifiques pagos. Responde solo con el texto del mensaje.`;
