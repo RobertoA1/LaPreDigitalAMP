@@ -181,10 +181,11 @@ export async function sendInsight(id: number, actorId: number) {
   try {
     const message = await (await import('./messaging')).sendMessage(c.id, row.channel as Channel, row.draft, 'OPERATOR', String(actorId), false);
     await db.amp_insights.update({ status: 'USED', updatedAt: new Date() }, { where: { id, status: 'SENDING' } });
-    await event(c.id, 'RADAR_SENT', 'Operador envió el borrador sugerido por el Radar.', 'OPERATOR', String(actorId), { insightId: id, messageId: message.get('id') });
+    await event(c.id, row.phase === 'LIFECYCLE' ? 'LIFECYCLE_CONTACT' : 'RADAR_SENT', row.phase === 'LIFECYCLE' ? 'Contacto del ciclo ejecutado por operador; el agente no envió autónomamente.' : 'Operador envió el borrador sugerido por el Radar.', 'OPERATOR', String(actorId), { insightId: id, messageId: message.get('id'), state: 'EJECUTADA', action: row.phase === 'LIFECYCLE' ? 'CONTACT' : 'RADAR_SEND', recipientKind: 'STUDENT', channel: row.channel, executedAt: new Date().toISOString() });
     return message;
   } catch (error) {
     await db.amp_insights.update({ status: 'OPEN', updatedAt: new Date() }, { where: { id, status: 'SENDING' } });
+    if (row.phase === 'LIFECYCLE') await event(c.id, 'LIFECYCLE_ACTION', 'La acción del ciclo falló al intentar enviarse; permanece pendiente de atención.', 'SYSTEM', 'lifecycle', { insightId: id, state: 'FALLIDA', error: String(error) });
     throw error;
   }
 }

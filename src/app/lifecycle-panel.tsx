@@ -7,15 +7,17 @@ export default function LifecyclePanel({ assessment: a, onResolve, onDraft, guar
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   return <section className="panel">
-    <p className="eyebrow">{a.proposal ? 'PROPUESTA · APOYO A LA REACTIVACIÓN' : 'FIDELIZACIÓN · INFORME 6.1–6.4'}</p>
+    <p className="eyebrow">{a.proposal ? 'AGENTE DE REACTIVACIÓN Y POSTVENTA' : 'AGENTE DE FIDELIZACIÓN Y ACOMPAÑAMIENTO'}</p>
     <h3>{a.proposal ? 'Comprender la baja y acompañar el retorno' : 'Acompañamiento y continuidad'}</h3>
     <p>{a.recommendation}</p>
+    <p><strong>Riesgo {a.risk.level}</strong> · {a.risk.signalCount} señal(es) observada(s). Acción: {a.action.type} · estado {a.action.state} · {a.action.needsHuman ? 'intervención humana requerida' : 'sin intervención humana requerida'}.</p>
+    <ul>{a.risk.evidence.map((item, i) => <li key={`risk-${i}`}>{item.signal} [{item.status}] {item.evidence} · {item.observedAt || 'sin fecha'}</li>)}</ul>
     <ul>{a.evidence.map((item, i) => <li key={i}>{item}</li>)}</ul>
     <details><summary>Datos que aún no permiten una conclusión</summary><ul>{a.limits.map(item => <li key={item}>{item}</li>)}</ul></details>
     <p className="muted">Los textos son borradores. Copiarlos al chat no realiza un envío. El historial indica qué mensajes fueron enviados o simulados.</p>
     <div className="insight-actions">
       {a.draft && <button className="button secondary" onClick={() => onDraft(a.draft!, false)}>Revisar borrador para estudiante</button>}
-      {!a.proposal && !a.blocked && !a.review && guardianAllowed && <button className="button secondary" onClick={() => onDraft(a.guardianDraft, true)}>Revisar reporte para apoderado</button>}
+      {!a.proposal && !a.blocked && !a.review && a.guardianReportAllowed && guardianAllowed && <button className="button secondary" onClick={() => onDraft(a.guardianDraft, true)}>Revisar reporte para apoderado</button>}
     </div>
     {a.review && <div className="form-panel">
       <label>Resultado de la atención humana<textarea value={reason} onChange={e => setReason(e.target.value)} placeholder="Registra cómo se atendió el caso y por qué puede retomarse el seguimiento."/></label>

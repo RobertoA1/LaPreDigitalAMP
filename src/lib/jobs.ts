@@ -3,13 +3,13 @@ import Fuse from 'fuse.js';
 import { plain, plainMany, tables } from './db';
 import { contact, event } from './contacts';
 import { runAgent, channelFor } from './agents';
-import { sendToBoth, sendToPermittedRecipients, withinSendHours } from './messaging';
+import { sendMessage, sendToBoth, sendToPermittedRecipients, withinSendHours, messagePermission } from './messaging';
 import { normalizeName } from './exams';
 import { scanRadar, runRadar } from './radar';
 import { processInbound } from './inbound';
 import type { Contact, Channel } from './types';
 import { assessPayerOnboarding, shouldSendRenewalNotice } from './stage-agents';
-import { isLifecycle, recoveryWindow, reactivated } from './lifecycle-policy';
+import { isLifecycle, recoveryWindow, reactivated, reactivationAttributionWindow } from './lifecycle-policy';
 import { lifecycleAutomaticBlock, prepareLifecycle } from './lifecycle';
 
 export async function enqueue(kind: string, contactId: number | null, payload: object = {}, runAt = new Date(), dedupeKey?: string) {
@@ -48,6 +48,20 @@ export async function scanSchedules(now = new Date()) {
       if ([7, 3, 1].includes(days)) {
         await enqueue('RENEWAL', c.id, { expectedRenewalAt: c.renewalAt, days }, now, `renewal:${c.id}:${c.renewalAt}:${days}`);
         scheduled++;
+      }
+    }
+    // A renewal job is a proposal tied to a precise datamart state. Cancel
+    // stale pending jobs instead of allowing them to become messages later.
+    const renewalJobs = await db.amp_jobs.findAll({ where: { contactId: c.id, kind: 'RENEWAL', status: { [Op.in]: ['PENDING', 'RUNNING'] } } });
+    for (const job of renewalJobs) {
+      let payload: any = {};
+      try { payload = JSON.parse(String(job.get('payload') || '{}')); } catch { payload = {}; }
+      const expectedTime = payload.expectedRenewalAt ? new Date(payload.expectedRenewalAt).getTime() : NaN;
+      const currentTime = c.renewalAt ? new Date(c.renewalAt).getTime() : NaN;
+      const stale = c.stage !== 'PAYER' && c.stage !== 'CUSTOMER' || ['RENEWED', 'CANCELLED'].includes(String(c.paymentStatus || '').toUpperCase()) || expectedTime !== currentTime;
+      if (stale) {
+        await db.amp_jobs.update({ status: 'CANCELLED', leaseUntil: null, lastError: 'Estado de vigencia o pago cambió en el datamart.' }, { where: { id: job.get('id'), status: { [Op.in]: ['PENDING', 'RUNNING'] } } });
+        await event(c.id, 'RENEWAL_CANCELLED', 'Recordatorio cancelado: la vigencia o el pago ya no coincide con el estado operativo.', 'SYSTEM', 'worker', { jobId: job.get('id'), expectedRenewalAt: payload.expectedRenewalAt, currentRenewalAt: c.renewalAt, paymentStatus: c.paymentStatus });
       }
     }
     if (c.stage === 'PAYER' && c.stageChangedAt && assessPayerOnboarding(c, [], now).activation === 'CONFIRMED') {
@@ -124,8 +138,9 @@ if (!['ANALYZE', 'INBOUND', 'LIFECYCLE'].includes(candidate.kind) && !(candidate
       return true;
     }
     if (['OFFER', 'CAMPAIGN', 'RENEWAL', 'SIMULACRO'].includes(candidate.kind) && await lifecycleAutomaticBlock(candidate.contactId)) {
-      await db.amp_jobs.update({ status: 'DONE', leaseUntil: null, lastError: null }, { where: { id: candidate.id } });
-      await event(candidate.contactId, 'LIFECYCLE_SEND_BLOCKED', 'Envío automático omitido por revisión de servicio o plazo de recuperación.', 'SYSTEM', 'worker');
+      const blockedStatus = candidate.kind === 'RENEWAL' ? 'CANCELLED' : 'DONE';
+      await db.amp_jobs.update({ status: blockedStatus, leaseUntil: null, lastError: null }, { where: { id: candidate.id } });
+      await event(candidate.contactId, candidate.kind === 'RENEWAL' ? 'RENEWAL_CANCELLED' : 'LIFECYCLE_SEND_BLOCKED', candidate.kind === 'RENEWAL' ? 'Recordatorio de renovación cancelado por una pausa, revisión o cambio de vigencia.' : 'Envío automático omitido por revisión de servicio o plazo de recuperación.', 'SYSTEM', 'worker');
       return true;
     }
     if (candidate.kind === 'LIFECYCLE') await prepareLifecycle(candidate.contactId);
@@ -156,7 +171,8 @@ if (c && c.renewalAt && shouldSendRenewalNotice(c, payload.expectedRenewalAt) &&
         const studentBody = `Hola, ${c.fullName.split(' ')[0]}. Tu servicio LaPreDigital vence en ${payload.days} día${payload.days === 1 ? '' : 's'}. Si deseas continuar tu preparación, revisa tu renovación en la plataforma. ¿Necesitas ayuda?`;
         const guardianBody = c.stage === 'PAYER' ? `Hola, ${c.guardianName?.split(' ')[0] || 'apoderado'}. Con tu autorización, acompañamos a ${c.fullName.split(' ')[0]} con el próximo vencimiento de su servicio. Si ya renovaron, el datamart debe confirmarlo antes de detener futuros avisos.` : studentBody;
         if (c.stage === 'PAYER') await sendToPermittedRecipients(c.id, channel, studentBody, guardianBody, 'Agente de Cobranza', true);
-        else await sendToBoth(c.id, channel, studentBody, 'Agente de Cobranza', true);
+        else if (messagePermission(c, channel, 'GUARDIAN') === 'ALLOWED') await sendMessage(c.id, channel, guardianBody, 'AGENT', 'Agente de Fidelización y Acompañamiento', true, false, 'GUARDIAN');
+        else await sendMessage(c.id, channel, studentBody, 'AGENT', 'Agente de Fidelización y Acompañamiento', true);
       }
     } else if (candidate.kind === 'SIMULACRO') {
       const c = await contact(candidate.contactId);
@@ -213,7 +229,11 @@ async function syncStage(c: Contact) {
     const version = previous.version + 1;
     await db.amp_contact_state.update({ stage: c.stage, version, sourceUpdatedAt: c.sourceUpdatedAt || null }, { where: { contactId: c.id } });
     await event(c.id, 'STAGE_CHANGE', `${previous.stage} → ${c.stage} confirmado por datamart.`, 'SYSTEM', 'worker');
-    if (reactivated(previous.stage, c.stage)) await event(c.id, 'REACTIVATION_CONFIRMED', 'Reactivación confirmada por el datamart: TURNED → PAYER.', 'SYSTEM', 'worker');
+    if (reactivated(previous.stage, c.stage)) {
+      const lifecycleEvents = plainMany<any>(await db.amp_events.findAll({ where: { contactId: c.id, type: { [Op.in]: ['STAGE_CHANGE', 'LIFECYCLE_CONTACT'] } }, order: [['createdAt', 'ASC']] }));
+      const attribution = reactivationAttributionWindow(c, lifecycleEvents, new Date());
+      await event(c.id, 'REACTIVATION_CONFIRMED', 'Nuevo ciclo confirmado por el datamart: TURNED → PAYER; no se borra el pago histórico.', 'SYSTEM', 'worker', { previousStage: 'TURNED', currentStage: 'PAYER', newCycle: true, attribution: attribution.eligible ? 'AGENT_ATTRIBUTED_CANDIDATE' : 'SPONTANEOUS_OR_OUTSIDE_WINDOW', attributionReason: attribution.reason, attributionDeadline: attribution.deadline });
+    }
     return version;
   }
   return previous.version;

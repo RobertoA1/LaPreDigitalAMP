@@ -1,25 +1,49 @@
-# Fidelización y reactivación
+# CUSTOMER y TURNED
 
-CUSTOMER corresponde al Agente de Fidelización del informe, secciones 6.1–6.4. Detecta cinco días sin actividad registrada, resume reportes fechados y prepara borradores diferenciados para estudiante y apoderado. Las cancelaciones, insatisfacción e incidencias de acceso generan atención humana. El bloqueo comienza al detectar la declaración y no depende de que el operador abra el perfil. Una resolución humana con motivo queda auditada antes de habilitar nuevamente la programación automática; la pausa del contacto conserva su efecto.
+## Propósito y arquitectura real
 
-TURNED es una propuesta de asistente, basada en las actividades de la sección 7.3. Identifica la etapa anterior solo mediante un evento de transición, registra motivos declarados en `amp_events` y propone mensajes según la dificultad comunicada. No infiere pagos de una conversación. Registra la reactivación únicamente cuando el worker observa el cambio TURNED → PAYER en el datamart.
+| Requisito | Implementación encontrada | Evidencia en código | Brecha corregida |
+|---|---|---|---|
+| Agentes propios de CUSTOMER y TURNED | Ciclo lifecycle preparado por worker, ejecución manual y pantalla de perfil | `src/lib/lifecycle.ts`, `src/lib/jobs.ts`, `src/app/lifecycle-panel.tsx` | Se renombraron funcionalmente a Fidelización y Acompañamiento y Reactivación y Postventa; TURNED dejó de documentarse como simple propuesta |
+| Datos de entrada | `dm_contacts`, `dm_academic_weekly`, mensajes y eventos AMP | `lifecycleContext()` y `lifecycleAssessment()` | Se registra fecha de consulta, actualización del datamart, evento activador y evidencia |
+| IA | Proveedor configurable OpenAI/Gemini/Grok/Anthropic; fallback determinista | `src/lib/ai.ts`, `prepareLifecycle()` | La IA solo elige una redacción entre opciones verificadas; no decide pagos, etapas, riesgo ni rutas |
+| Actividad | Última actividad, actividades programadas/completadas, simulacros y comparación semanal | `activityAssessment()` y resumen de lifecycle | Se activa a los cinco días solo con fecha válida; ausencia de fecha queda en `NO_DATA` |
+| Académico | Reportes semanales; comparabilidad opcional por `assessmentId`, `assessmentType` o `equivalentGroup` | `academicAssessment()` | Variación explícita: `(actual - anterior) / abs(anterior) * 100`; sin equivalencia no se afirma mejora ni descenso porcentual |
+| Riesgo | Señales de inactividad, cumplimiento, dificultad, incidencia, insatisfacción y cancelación | `lifecycleRisk()` | Bajo/medio/alto; dos señales producen alto y cancelación explícita produce alto por sí sola, con estado y fecha |
+| Intervención | Insight revisable y envío solo por operador; rutas/pagos no tienen conector | `amp_insights`, `sendInsight()`, `sendMessage()` | Estados `PROPUESTA`, `PENDIENTE`, `EJECUTADA`, `FALLIDA` o `DERIVADA`; se registra el resultado |
+| Apoderado | Permisos y direcciones separados | `messagePermission()`, `LifecyclePanel` | Reportes de avance al apoderado solo se habilitan para `Meta UNT Plus`, con autorización y dirección |
+| TURNED | Transición anterior, motivo declarado, ventana de contacto y admisión | `lifecycleAssessment()`, `recoveryWindow()` | Motivo desconocido se conserva como desconocido; no se transforma una hipótesis en hecho |
+| Reactivación | La baja no se borra; el datamart confirma `TURNED → PAYER` | `syncStage()` | Se registra un nuevo ciclo y la atribución solo se mide dentro de 30 días de un contacto ejecutado; el retorno espontáneo no se atribuye al agente |
+| Renovación | Jobs a 7, 3 y 1 días con relectura del datamart | `scanSchedules()`, `processNextJob()` | Trabajos pendientes se marcan `CANCELLED` si cambia vencimiento, etapa o estado de pago; CUSTOMER prioriza responsable económico autorizado |
+| Duplicados | `dedupeKey` en jobs e insights y claim de triaje | `prepareLifecycle()`, `enqueue()`, `processInbound()` | Un contacto saliente pendiente impide generar otro contacto lifecycle |
 
-## Datos y límites
+## Ciclo operativo
 
-No hay cambios de esquema, migraciones ni cargas iniciales. Se utilizan `dm_contacts`, `dm_academic_weekly`, `amp_events`, `amp_messages`, `amp_insights` y `amp_jobs`. La fase LIFECYCLE usa el campo de texto existente; `sourceMessageId=0` representa un borrador previo a la primera conversación (el esquema existente no define una clave foránea para ese campo).
+Cada ejecución sigue: **consultar contexto → analizar evidencia → seleccionar acción → ejecutar o derivar → registrar → comprobar resultado**.
 
-`stageChangedAt` debe representar la transición vigente, no una fecha de importación. Se considera inválida si falta, no se puede interpretar o está en el futuro. El seguimiento saliente termina al cumplirse 30 días desde la baja o al vencer el plazo de silencio configurado en el Radar. No se reemplaza la fecha faltante por la creación del contacto ni por el vencimiento del plan.
+El evento `LIFECYCLE_REVIEW` guarda usuario/ciclo implícito, etapa, activador, fecha de consulta, fecha de datos, evidencias, riesgo, acción, resultado y límites. El envío humano se registra como `LIFECYCLE_CONTACT` o `LIFECYCLE_ACTION`; un fallo se registra como `FALLIDA`. Crear un borrador nunca cuenta como envío.
 
-Los reportes semanales no permiten demostrar que dos puntajes provienen de evaluaciones equivalentes. Se muestran valores, semanas y actividades observadas, pero no se calculan mejora del 10 %, estancamiento entre evaluaciones, NPS ni satisfacción. No se alteran rutas académicas ni planes. Esta limitación también se explica en el perfil.
+CUSTOMER reconoce actividades completadas, muestra cambios entre semanas y genera una actividad breve después de cinco días sin actividad. Un descenso de 10 % o dos evaluaciones equivalentes consecutivas sin mejora activa refuerzo. Ruta UNT recibe una revisión puntual pendiente; Meta UNT y Meta UNT Plus generan una propuesta pendiente para el componente académico existente. No se modifica una ruta desde AMP.
 
-## Operación
+TURNED reconstruye si el origen fue PAYER o CUSTOMER solo desde `STAGE_CHANGE`, conserva historial, clasifica únicamente el motivo declarado y pregunta cuando es desconocido. Precio no produce descuentos automáticos. Problemas técnicos, insatisfacción, reclamos, cancelaciones y valoraciones individuales de 0 a 6 requieren revisión humana. Ingreso confirmado cierra el seguimiento. La contratación y el pago siempre dependen de la plataforma académica.
 
-El worker prepara recomendaciones al detectar la etapa, en su revisión diaria y durante el seguimiento semanal existente. CUSTOMER y TURNED generan borradores revisables, sin envío autónomo del texto generado. Los recordatorios ya existentes permanecen sujetos a consentimiento, horario y revisión de servicio. Las tareas bloqueadas quedan terminadas con un evento de omisión; no se reenvían comunicaciones vencidas al resolver el caso.
+La ventana de **contacto** es de 30 días desde la baja válida. La ventana de **atribución de reactivación** es independiente: 30 días desde el primer contacto ejecutado por el agente. Un pago histórico no se reemplaza; `TURNED → PAYER` inicia un ciclo nuevo y solo el datamart confirma el pago.
 
-La clave de cada recomendación depende de la evidencia, no del propio envío, para evitar que enviar un borrador produzca otro idéntico. El Radar no genera un seguimiento adicional mientras hay una recomendación de ciclo abierta. Antes de enviar se verifican nuevamente evidencia, etapa, pausa, plazo y último mensaje. Los borradores copiados al editor son mensajes manuales sujetos a los controles de envío del sistema.
+## Catálogo y límites
 
-La IA únicamente elige entre redacciones basadas en evidencia; no puede incorporar nuevos hechos a estos borradores. Las consultas sensibles entrantes conservan respuestas de plantilla para revisión humana. Una ausencia o fallo del proveedor no impide el análisis.
+`src/lib/catalog.ts` contiene únicamente prestaciones: Explora UNT (14 días), Ruta UNT (revisiones puntuales), Meta UNT (personalización adaptativa y simulacros) y Meta UNT Plus (reportes al apoderado autorizado, alertas avanzadas y atención prioritaria). No contiene precios ni inventa condiciones. Un plan desconocido genera revisión pendiente.
 
-## Verificación
+El AMP consume el datamart, no confirma pagos, no cambia planes o rutas, no resuelve tickets por generar una respuesta y no calcula NPS agregado sin encuesta estructurada. Los precios y alternativas económicas deben venir del catálogo operativo y cualquier descuento especial requiere intervención humana.
 
-`tests/lifecycle.test.ts` cubre datos insuficientes, cinco días sin actividad, reportes, motivos declarados, pausa, admisión, revisión humana, límites de reactivación y deduplicación. La integración usa SQLite exclusivamente en memoria y prohíbe llamadas de red. No inicia el worker ni accede a la base local del usuario.
+## Métricas
+
+Las definiciones ejecutables están en `lifecycleMetricDefinitions()`:
+
+- CUSTOMER: actividad semanal, revisiones académicas ejecutadas, progreso medido solo con pares equivalentes, riesgo actualizado, recuperación de actividad, incidencias resueltas con `INCIDENT_RESOLVED`, renovación confirmada, satisfacción individual y abandono `CUSTOMER → TURNED`.
+- TURNED: motivos conocidos sobre bajas con `TURNED_REASON`, contactos ejecutados dentro de 30 días y reactivaciones atribuidas solo si `TURNED → PAYER` ocurre dentro de 30 días del contacto ejecutado.
+
+Una recomendación, un borrador, un pago espontáneo o una respuesta generada no cuentan como acción ejecutada ni recuperación atribuida.
+
+## Escenarios verificados
+
+`tests/customer-turned-scenarios.test.ts` cubre los diez escenarios solicitados con datos sintéticos. `tests/lifecycle.test.ts` además verifica modo Demo aislado, pausa, revisión humana, límite del Radar, deduplicación y envío simulado. Las pruebas no usan red ni la base Demo persistente.

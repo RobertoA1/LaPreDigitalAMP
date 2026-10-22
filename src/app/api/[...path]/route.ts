@@ -16,6 +16,7 @@ import { assessPayerOnboarding, eventDetails } from '@/lib/stage-agents';
 import { stages, type Stage, type Channel } from '@/lib/types';
 import { lifecycleContext, prepareLifecycle } from '@/lib/lifecycle';
 import { isLifecycle } from '@/lib/lifecycle-policy';
+import { planCapabilities } from '@/lib/catalog';
 
 export const runtime = 'nodejs';
 const fail = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
@@ -128,8 +129,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ path: s
       const id = Number(req.nextUrl.searchParams.get('id'));
       const c = await contact(id);
       if (!c) return fail('Contacto no encontrado', 404);
-      const lifecycle = (await lifecycleContext(id))?.assessment || null;
-      return ok({ contact: c, history: await contactHistory(id), insights: await openInsights(id), weekly: plainMany(await db.dm_academic_weekly.findAll({ where: { contactId: id }, order: [['weekStart', 'DESC']], limit: 12 })), recommendations: lifecycle ? [lifecycle.recommendation, ...lifecycle.evidence] : await recommend(c), lifecycle });
+      const lifecycleContextValue = await lifecycleContext(id);
+      const lifecycle = lifecycleContextValue?.assessment || null;
+      return ok({ contact: c, history: await contactHistory(id), insights: await openInsights(id), weekly: plainMany(await db.dm_academic_weekly.findAll({ where: { contactId: id }, order: [['weekStart', 'DESC']], limit: 12 })), recommendations: lifecycle ? [lifecycle.recommendation, ...lifecycle.evidence] : await recommend(c), lifecycle, lifecycleMeta: lifecycleContextValue ? { consultedAt: lifecycleContextValue.consultedAt, dataAsOf: lifecycleContextValue.dataAsOf, sourceMessageId: lifecycleContextValue.sourceMessageId } : null });
     }
     if (path === 'radar') {
       const insights = await openInsights();
@@ -185,6 +187,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ path: 
       const context = await lifecycleContext(data.contactId);
       if (!context || !context.assessment.review) return fail('No hay revisión de servicio pendiente');
       await event(data.contactId, 'SERVICE_REVIEW_RESOLVED', 'Operador resolvió la revisión de servicio; no confirma pagos ni cambia la etapa.', 'OPERATOR', String(user.id), { reason: data.reason });
+      const openIncident = await db.amp_events.findOne({ where: { contactId: data.contactId, type: 'INCIDENT_OPEN' }, order: [['createdAt', 'DESC']] });
+      if (openIncident) await event(data.contactId, 'INCIDENT_RESOLVED', 'Operador registró la resolución de la incidencia; la respuesta por sí sola no la habría cerrado.', 'OPERATOR', String(user.id), { reason: data.reason, openedEventId: openIncident.get('id') });
       await db.amp_insights.update({ status: 'DISMISSED', updatedAt: new Date() }, { where: { contactId: data.contactId, status: 'OPEN', phase: { [Op.in]: ['LIFECYCLE', 'MANUAL_REPLY'] } } });
       await prepareLifecycle(data.contactId);
       return ok({ ok: true });
@@ -198,7 +202,11 @@ export async function POST(req: NextRequest, context: { params: Promise<{ path: 
     }
     if (path === 'message/send') {
       const data = z.object({ contactId: z.number().int().positive(), channel: z.enum(['WHATSAPP', 'EMAIL']), recipientKind: z.enum(['STUDENT', 'GUARDIAN']).optional(), text: z.string().trim().min(1).max(4000) }).parse(await body(req));
+      const target = await contact(data.contactId);
+      if (target?.stage === 'CUSTOMER' && (data.recipientKind || 'STUDENT') === 'GUARDIAN' && !planCapabilities(target.plan).guardianReports) return fail('Los reportes al apoderado solo corresponden a Meta UNT Plus');
       const row = await sendMessage(data.contactId, data.channel, data.text, 'OPERATOR', String(user.id), false, false, data.recipientKind || 'STUDENT');
+      const lifecycleContact = await contact(data.contactId);
+      if (lifecycleContact && isLifecycle(lifecycleContact.stage)) await event(data.contactId, 'LIFECYCLE_ACTION', 'Acción de comunicación ejecutada por operador; no fue un envío autónomo del agente.', 'OPERATOR', String(user.id), { state: 'EJECUTADA', action: 'CONTACT', messageId: row.get('id'), recipientKind: data.recipientKind || 'STUDENT', channel: data.channel, executedAt: new Date().toISOString() });
       await db.amp_insights.update({ status: 'SUPERSEDED', updatedAt: new Date() }, { where: { contactId: data.contactId, phase: 'MANUAL_REPLY', status: 'OPEN' } });
       return ok({ message: plain(row) });
     }

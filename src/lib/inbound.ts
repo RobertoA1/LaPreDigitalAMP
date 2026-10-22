@@ -56,9 +56,14 @@ const existingClaim = plain<any>(await db.amp_inbound_triage.findOne({ where: { 
     const c = await contact(incoming.contactId);
     if (!c) throw new Error('Contacto entrante no disponible');
     if (c.stage === 'BUYER' || c.stage === 'LEAD') await learnExplicitData(c.id, c, incoming.body);
-    if (isLifecycle(c.stage) && serviceSignal(incoming.body)) {
+    const lifecycleSignal = isLifecycle(c.stage) ? serviceSignal(incoming.body) : null;
+    if (lifecycleSignal) {
       const exists = await db.amp_events.findOne({ where: { contactId: c.id, type: 'SERVICE_REVIEW_REQUIRED', actorId: `message:${messageId}` } });
-      if (!exists) await event(c.id, 'SERVICE_REVIEW_REQUIRED', 'Revisión humana pendiente por una declaración del contacto.', 'CONTACT', `message:${messageId}`, { messageId, signal: serviceSignal(incoming.body), declaration: incoming.body });
+      if (!exists) await event(c.id, 'SERVICE_REVIEW_REQUIRED', 'Revisión humana pendiente por una declaración del contacto.', 'CONTACT', `message:${messageId}`, { messageId, signal: lifecycleSignal, declaration: incoming.body, observedAt: incoming.createdAt });
+      if (lifecycleSignal === 'ACCESS' || lifecycleSignal === 'DISSATISFACTION') {
+        const incident = await db.amp_events.findOne({ where: { contactId: c.id, type: 'INCIDENT_OPEN', actorId: `message:${messageId}` } });
+        if (!incident) await event(c.id, 'INCIDENT_OPEN', `Incidencia ${lifecycleSignal} abierta; no se considera resuelta por generar una respuesta.`, 'CONTACT', `message:${messageId}`, { messageId, signal: lifecycleSignal, openedAt: incoming.createdAt });
+      }
     }
     const exitReason = c.stage === 'TURNED' ? declaredExitReason(incoming.body) : null;
     if (exitReason && !(await db.amp_events.findOne({ where: { contactId: c.id, type: 'TURNED_REASON', actorId: `message:${messageId}` } }))) {

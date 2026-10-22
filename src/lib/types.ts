@@ -21,5 +21,5 @@ export const labels: Record<Stage, string> = {
 };
 export const agents: Record<Stage, string> = {
   BUYER: 'Agente de Marketing', LEAD: 'Agente Negociador', PAYER: 'Agente de Cobranza',
-  CUSTOMER: 'Agente de Fidelización', TURNED: 'Asistente de Reactivación (propuesta)'
+  CUSTOMER: 'Agente de Fidelización y Acompañamiento', TURNED: 'Agente de Reactivación y Postventa'
 };

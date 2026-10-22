@@ -1,6 +1,6 @@
 # LaPreDigital AMP
 
-CUSTOMER utiliza ahora el **Agente de Fidelización** y TURNED el **Asistente de Reactivación (propuesta)**. Ambos preparan borradores revisables con evidencia del perfil. Las reglas de inactividad, revisión humana y plazos, junto con los límites de los datos actuales, se describen en [docs/customer-turned.md](docs/customer-turned.md). Estas mejoras no requieren cambios de esquema ni migraciones.
+CUSTOMER utiliza el **Agente de Fidelización y Acompañamiento** y TURNED el **Agente de Reactivación y Postventa**. Ambos siguen un ciclo auditable y preparan acciones revisables con evidencia del perfil; solo las acciones autorizadas por un operador se ejecutan. Las reglas de actividad, riesgo, reactivación, revisión humana y plazos se describen en [docs/customer-turned.md](docs/customer-turned.md). Estas mejoras no requieren cambios de esquema ni migraciones.
 
 Aplicación local de orquestación para el recorrido **Universo → Buyer → Lead → Payer → Customer → Turned → Payer** de LaPreDigital. Implementada con Next.js 16, React, TypeScript y Sequelize 6. SQL Server 2022 es el motor operativo previsto; el modo Demo usa una base SQLite aislada con contactos sintéticos.
 
@@ -33,7 +33,7 @@ Sequelize permite configurar el dialecto en `.env`, pero **no garantiza que una 
 
 El AMP **lee el datamart**, no la base OLTP de la plataforma académica. Las migraciones crean tres proyecciones del datamart (`dm_contacts`, `dm_funnel_daily`, `dm_academic_weekly`) y tablas propias `amp_*` para conversaciones, eventos, cola, campañas, exámenes, aprobaciones, cupones, usuarios y ajustes. El equipo puede poblar o actualizar `dm_*` manualmente desde su DBMS. El AMP no confirma pagos ni cambia planes o suscripciones: los consume una vez aparezcan en el datamart. La correspondencia con los SQL adjuntos está en [docs/datamart-contract.md](docs/datamart-contract.md). La matriz de requisitos y trabajo de integración está en [docs/coverage.md](docs/coverage.md).
 
-Las correcciones del operador y las inferencias de alta confianza del agente se guardan en `amp_overrides`, sin sobrescribir la carga externa. Las transiciones de etapa vienen del datamart. `TURNED` significa baja; una reactivación vuelve a `PAYER`.
+Las correcciones del operador y las inferencias de alta confianza del agente se guardan en `amp_overrides`, sin sobrescribir la carga externa. Las transiciones de etapa vienen del datamart. `TURNED` significa baja; una reactivación confirmada vuelve a `PAYER` en un ciclo nuevo, sin borrar compras históricas.
 
 ## Reglas operativas
 

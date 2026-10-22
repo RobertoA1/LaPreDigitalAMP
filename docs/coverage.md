@@ -1,11 +1,11 @@
 # Cobertura funcional y próximos pasos
 
-Actualización CUSTOMER/TURNED: ver [Fidelización y reactivación](customer-turned.md). Sus ejecuciones generan borradores para revisión, con cinco días de inactividad en CUSTOMER y límite de 30 días desde la baja en TURNED, además del plazo del Radar. Los indicadores sin evidencia suficiente se muestran como limitaciones, no como métricas implementadas.
+Actualización CUSTOMER/TURNED: ver [CUSTOMER y TURNED](customer-turned.md). Sus ejecuciones consultan contexto, analizan evidencia, seleccionan una acción y registran el resultado. Los indicadores sin evidencia suficiente se muestran como limitaciones, no como métricas implementadas.
 
 | Requisito | Estado en esta entrega | Cómo comprobarlo |
 |---|---|---|
 | Dashboard IMPULSE y KPI ampliables | Implementado | `/` muestra snapshot del embudo, conversión, ingreso, cartera actual, aprobaciones y actividad. Nuevos KPI se agregan mediante nuevas proyecciones `dm_*`. |
-| BUYER, LEAD, PAYER, CUSTOMER y TURNED | Implementado | Cada vista separa «Requieren atención» y «Esperando contacto», ordena perfiles por prioridad y muestra el borrador aplicable, perfil, historial, chat y recomendación del funnel pirata. |
+| BUYER, LEAD, PAYER, CUSTOMER y TURNED | Implementado | Cada vista separa «Requieren atención» y «Esperando contacto», ordena perfiles por prioridad y muestra el borrador aplicable, perfil, historial, chat, riesgo y recomendación del funnel pirata. |
 | Cinco agentes y tareas concurrentes | Implementado | `npm run worker` procesa hasta tres tareas simultáneas en `amp_jobs`; la web solo encola. |
 | Radar permanente de conversaciones | Implementado | Worker analiza chats cada minuto sin operador; guarda borradores y estrategias, alerta a los 3/7/14/21 días y detiene a los 30 días por defecto. El máximo se configura en la UI. El radar incluye «Ver perfil». |
 | Triaje entrante y panel en vivo | Implementado en Demo y webhook WhatsApp | Cada entrada crea trabajo servidor. Las respuestas factuales cubiertas por lista blanca se envían automáticamente por el canal de origen; ofertas, pagos, incidencias y dudas sin datos verificados crean alerta manual con borrador. Los operadores reciben actualizaciones por SSE y sondeo de respaldo. |
@@ -14,7 +14,7 @@ Actualización CUSTOMER/TURNED: ver [Fidelización y reactivación](customer-tur
 | MCE, estudiante y apoderado, horario | Implementado | MCE editable, permisos separados, envíos automáticos 07:00–23:00 Lima; respuestas a mensajes entrantes pueden salir fuera del horario. |
 | Exámenes, diez no ingresantes, ingreso | Implementado | Alta dirección carga TXT, el sistema rankea por carrera, coteja carnet/nombre/variantes, permite revisión manual, alerta al BUYER prioritario y detiene TURNED admitidos. |
 | Aprobaciones y descuentos | Implementado | Ofertas individuales se revisan en Aprobaciones. Descuento de 1–30 %, un cupón por contacto, un uso, un pago, sin combinación. Campañas requieren aprobación previa de alta dirección. |
-| Renovación y seguimiento académico | Implementado según datos del datamart | Recordatorios a 7, 3 y 1 días; se cancelan al cambiar fecha o marcar `RENEWED`/`CANCELLED`. Seguimiento académico semanal y aviso de simulacros los viernes. |
+| Renovación y seguimiento académico | Implementado según datos del datamart | Recordatorios a 7, 3 y 1 días; trabajos pendientes se cancelan al cambiar fecha, etapa o marcar `RENEWED`/`CANCELLED`. El seguimiento académico calcula variación solo entre evaluaciones equivalentes y deja ajustes de ruta pendientes. |
 | Mejoras IMPULSE BUYER / LEAD / PAYER | Implementado sobre tablas existentes | Señales BUYER y perfil progresivo LEAD quedan auditados en `amp_events`; prioridad comercial basada en evidencia; aprobación solo ante petición explícita o propuesta concreta de beneficio. PAYER registra onboarding y `NO_DATA` sin inventar hitos, ofrece apoyo por inactividad confirmada y vuelve a validar la renovación antes del envío. |
 | Datamart y migraciones | Implementado | `npm run db:migrate` aplica siete migraciones; el AMP consume `dm_*` y guarda acciones en `amp_*`. No conecta al OLTP. |
 | Demo aislado | Implementado y probado | SQLite, 18 contactos sintéticos, tres cuentas y mensajes simulados. Simulación de entrada y salida solo con `DEMO_MODE=true`. |
