@@ -6,8 +6,8 @@ Estas instrucciones se pueden copiar en la configuración de agentes de OpenAI p
 
 ## Configuración común
 
-- **Nombres:** `LaPreDigital AMP / Marketing`, `Negociador`, `Cobranza`, `Académico`, `Post-venta` y `Radar / Triaje`.
-- **Modelo objetivo en AMP:** `gpt-5-nano`. Antes de guardar un agente alojado, comprobar que el selector de la plataforma admite ese modelo; la disponibilidad puede variar. El AMP lo invoca directamente mediante Responses API.
+- **Nombres:** `LaPreDigital AMP / Buyer → Lead`, `Negociador`, `Cobranza`, `Académico`, `Post-venta` y `Radar / Triaje`.
+- **Modelo objetivo en AMP:** `gpt-5-mini` (configurable). Antes de guardar un agente alojado, comprobar que el selector de la plataforma admite ese modelo; la disponibilidad puede variar. El AMP lo invoca directamente mediante Responses API.
 - **Idioma:** español de Perú; mensajes cortos, respetuosos y con una sola pregunta o llamada a la acción.
 - **Entrada:** contexto estructurado que entrega el AMP: etapa, perfil vigente del datamart, MCE, consentimiento, últimos mensajes, campañas y ofertas aprobadas, actividad académica si procede, fecha local de Lima. No colocar expedientes completos ni credenciales en las instrucciones.
 - **Herramientas:** en la plataforma, iniciar en modo lectura/borrador. Para una futura conexión por funciones, exponer únicamente `read_contact`, `read_conversation`, `read_approved_campaigns`, `read_academic_summary` y `propose_action`. Las acciones reales (`send_message`, `update_contact`, `approve_offer`, `mark_admitted`) siguen en el backend con validación de permisos, idempotencia, consentimiento, horario y auditoría. Ningún agente obtiene una herramienta directa para aprobar descuentos o modificar pagos.

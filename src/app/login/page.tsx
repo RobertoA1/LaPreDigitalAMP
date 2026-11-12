@@ -1,4 +1,4 @@
 import { redirect } from 'next/navigation';
 import { currentUser } from '@/lib/auth';
 import Login from './ui';
-export default async function LoginPage() { if (await currentUser()) redirect('/'); return <Login />; }
+export default async function LoginPage() { if (await currentUser()) redirect('/'); return <Login demo={process.env.DEMO_MODE === 'true'} />; }

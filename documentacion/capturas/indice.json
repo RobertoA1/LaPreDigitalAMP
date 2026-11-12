@@ -1,0 +1,1215 @@
+{
+  "documento": "Manual de Usuario y Manual de Código Fuente de LaPreDigital AMP: mismo índice de pantallas",
+  "capturas": [
+    {
+      "figura": "Figura 01",
+      "archivo": "capturas/01-login.png",
+      "pie": "Pantalla de Inicio de Sesión",
+      "modulo": "A) PANTALLA DE LOGIN Y SEGURIDAD",
+      "opcion": "Pantalla de inicio de sesión",
+      "ruta": "/login",
+      "fuente": [
+        {
+          "archivo": "src/app/login/ui.tsx",
+          "funciones": [
+            "Login",
+            "submit"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "POST (rama path === \"login\")"
+          ]
+        },
+        {
+          "archivo": "src/lib/auth.ts",
+          "funciones": [
+            "sessionToken",
+            "sessionCookie",
+            "currentUser"
+          ]
+        },
+        {
+          "archivo": "src/app/login/page.tsx",
+          "funciones": [
+            "LoginPage"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 02",
+      "archivo": "capturas/02-login-error.png",
+      "pie": "Mensaje de credenciales incorrectas",
+      "modulo": "A) PANTALLA DE LOGIN Y SEGURIDAD",
+      "opcion": "Validación de credenciales",
+      "ruta": "/login",
+      "fuente": [
+        {
+          "archivo": "src/app/login/ui.tsx",
+          "funciones": [
+            "Login",
+            "submit"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "POST (rama path === \"login\")"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 03",
+      "archivo": "capturas/03a-menu-lateral.png",
+      "pie": "Menú lateral de navegación",
+      "modulo": "A) PANTALLA DE LOGIN Y SEGURIDAD",
+      "opcion": "Menú lateral de navegación",
+      "ruta": "/",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "Sidebar",
+            "App"
+          ]
+        },
+        {
+          "archivo": "src/app/[[...slug]]/page.tsx",
+          "funciones": [
+            "Page"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 04",
+      "archivo": "capturas/03b-encabezado.png",
+      "pie": "Encabezado con estado en vivo y rol del usuario",
+      "modulo": "A) PANTALLA DE LOGIN Y SEGURIDAD",
+      "opcion": "Encabezado, estado en vivo y rol del usuario",
+      "ruta": "/",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "Header",
+            "App"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"live\")",
+            "GET (rama path === \"me\")"
+          ]
+        },
+        {
+          "archivo": "src/lib/live.ts",
+          "funciones": [
+            "versionLive",
+            "suscribirLive"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 05",
+      "archivo": "capturas/17-sesion-cerrada.png",
+      "pie": "Pantalla de inicio de sesión tras cerrar la sesión",
+      "modulo": "A) PANTALLA DE LOGIN Y SEGURIDAD",
+      "opcion": "Cierre de sesión",
+      "ruta": "/login",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "Sidebar (botón Cerrar sesión)"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "POST (rama path === \"logout\")"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 06",
+      "archivo": "capturas/04-dashboard.png",
+      "pie": "Dashboard: tarjetas, embudo y contactos por etapa",
+      "modulo": "B) DASHBOARD",
+      "opcion": "Indicadores y embudo de conversión",
+      "ruta": "/",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "Dashboard",
+            "useData",
+            "pct"
+          ]
+        },
+        {
+          "archivo": "src/app/buyer-panel.tsx",
+          "funciones": [
+            "BuyerDashboardCard"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"dashboard\")"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 07",
+      "archivo": "capturas/04b-dashboard-actividad.png",
+      "pie": "Actividad reciente del sistema",
+      "modulo": "B) DASHBOARD",
+      "opcion": "Actividad reciente",
+      "ruta": "/",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "Dashboard (sección Actividad reciente)"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"dashboard\")"
+          ]
+        },
+        {
+          "archivo": "src/lib/contacts.ts",
+          "funciones": [
+            "event"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 08",
+      "archivo": "capturas/05-radar.png",
+      "pie": "Radar de conversaciones",
+      "modulo": "C) RADAR DE CONVERSACIONES",
+      "opcion": "Radar de conversaciones",
+      "ruta": "/radar",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "RadarPage",
+            "InsightCard"
+          ]
+        },
+        {
+          "archivo": "src/lib/radar.ts",
+          "funciones": [
+            "assessConversation",
+            "scanRadar",
+            "runRadar",
+            "openInsights",
+            "dismissInsight",
+            "sendInsight",
+            "radarConfig"
+          ]
+        },
+        {
+          "archivo": "src/lib/messaging.ts",
+          "funciones": [
+            "sendMessage",
+            "messagePermission"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"radar\")",
+            "POST radar/send",
+            "POST radar/dismiss"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 09",
+      "archivo": "capturas/06a-buyers-filtros-kpi.png",
+      "pie": "Filtros globales y tarjetas de KPI con semáforo (octubre de 2026)",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Filtros globales y KPI del periodo",
+      "ruta": "/buyers",
+      "fuente": [
+        {
+          "archivo": "src/app/buyer-panel.tsx",
+          "funciones": [
+            "BuyerPanel",
+            "KpiCards",
+            "useBlock",
+            "estadoDe",
+            "thresholdText"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-kpis.ts",
+          "funciones": [
+            "KPI_DEFS",
+            "semaforo",
+            "kpisQuerySchema",
+            "buyerKpis",
+            "kpisPeriodo",
+            "listasFiltros",
+            "periodoPorDefecto",
+            "ultimaCarga",
+            "construirKpi"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET buyer/kpis"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 09-B",
+      "archivo": "capturas/06a-buyers-filtros-kpi-periodo-completo.png",
+      "pie": "KPI con el periodo completo del 01/06/2025 al 31/10/2026",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Filtros globales y KPI del periodo",
+      "ruta": "/buyers",
+      "fuente": [
+        {
+          "archivo": "src/app/buyer-panel.tsx",
+          "funciones": [
+            "BuyerPanel",
+            "KpiCards",
+            "useBlock",
+            "estadoDe",
+            "thresholdText"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-kpis.ts",
+          "funciones": [
+            "KPI_DEFS",
+            "semaforo",
+            "kpisQuerySchema",
+            "buyerKpis",
+            "kpisPeriodo",
+            "listasFiltros",
+            "periodoPorDefecto",
+            "ultimaCarga",
+            "construirKpi"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET buyer/kpis"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 10",
+      "archivo": "capturas/06b-buyers-tendencia-abandono.png",
+      "pie": "Tendencia mensual de un KPI y curva de abandono del video",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Tendencia mensual y curva de abandono",
+      "ruta": "/buyers",
+      "fuente": [
+        {
+          "archivo": "src/app/buyer-panel.tsx",
+          "funciones": [
+            "TrendSection",
+            "AbandonmentSection"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-kpis.ts",
+          "funciones": [
+            "abandonmentQuerySchema",
+            "curvaAbandono",
+            "construirCurva",
+            "buyerKpis"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET buyer/kpis",
+            "GET buyer/abandonment"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 11",
+      "archivo": "capturas/06c-buyers-desgloses.png",
+      "pie": "Desgloses por canal, campaña y video",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Desgloses por canal, campaña y video",
+      "ruta": "/buyers",
+      "fuente": [
+        {
+          "archivo": "src/app/buyer-panel.tsx",
+          "funciones": [
+            "BreakdownTables",
+            "KpiCell",
+            "estadoDe"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-kpis.ts",
+          "funciones": [
+            "buyerKpis",
+            "semaforo"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET buyer/kpis"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 12",
+      "archivo": "capturas/06d-buyers-tiempo-real.png",
+      "pie": "Actividad de hoy en tiempo real y notificaciones",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Hoy en tiempo real y notificaciones",
+      "ruta": "/buyers",
+      "fuente": [
+        {
+          "archivo": "src/app/buyer-panel.tsx",
+          "funciones": [
+            "RealtimeSection"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-kpis.ts",
+          "funciones": [
+            "actividadHoy",
+            "diaLima"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-webhook.ts",
+          "funciones": [
+            "registrarInscripcion",
+            "ultimasNotificaciones",
+            "inscripcionSchema",
+            "secretoValido"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET buyer/realtime",
+            "POST webhooks/inscripciones"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 13",
+      "archivo": "capturas/06e-buyers-agente.png",
+      "pie": "Agente de conversión: indicaciones y botones de generación",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Agente: generar propuestas B-1 y B-2",
+      "ruta": "/buyers",
+      "fuente": [
+        {
+          "archivo": "src/app/buyer-panel.tsx",
+          "funciones": [
+            "AgentSection",
+            "launch"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-agent.ts",
+          "funciones": [
+            "solicitudRunSchema",
+            "requestRun",
+            "executeRun",
+            "buildContext",
+            "procesarSalidaIa",
+            "validarPropuestas",
+            "completarCobertura",
+            "scanBuyerSchedules"
+          ]
+        },
+        {
+          "archivo": "src/lib/jobs.ts",
+          "funciones": [
+            "enqueue",
+            "processNextJob"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "POST buyer/run"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 14",
+      "archivo": "capturas/06f-buyers-ejecucion-analisis.png",
+      "pie": "Ejecuciones del agente con el análisis desplegado",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Ejecuciones recientes y análisis",
+      "ruta": "/buyers",
+      "fuente": [
+        {
+          "archivo": "src/app/buyer-panel.tsx",
+          "funciones": [
+            "AgentSection",
+            "RUN_STATUS",
+            "TRIGGER"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-agent.ts",
+          "funciones": [
+            "executeRun",
+            "listarEjecuciones",
+            "ejecucionAPlano",
+            "analisisPlantilla"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET buyer/runs"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 15",
+      "archivo": "capturas/06g-buyers-propuestas.png",
+      "pie": "Bandeja de propuestas del agente",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Bandeja de propuestas",
+      "ruta": "/buyers",
+      "fuente": [
+        {
+          "archivo": "src/app/buyer-panel.tsx",
+          "funciones": [
+            "ProposalsSection",
+            "Proposal",
+            "evidenceLines",
+            "copyText"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-agent.ts",
+          "funciones": [
+            "listarPropuestas",
+            "filtroPropuestasSchema",
+            "decisionSchema",
+            "decidirPropuesta",
+            "propuestaAPlano"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET buyer/proposals",
+            "POST buyer/proposal/decide"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 16",
+      "archivo": "capturas/06h-buyers-editar-propuesta.png",
+      "pie": "Edición de una propuesta con «Editar y aprobar» (sin guardar)",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Editar y aprobar una propuesta",
+      "ruta": "/buyers",
+      "fuente": [
+        {
+          "archivo": "src/app/buyer-panel.tsx",
+          "funciones": [
+            "Proposal (modo edit)",
+            "decide"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-agent.ts",
+          "funciones": [
+            "decidirPropuesta",
+            "detectarProhibidos",
+            "decisionSchema"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "POST buyer/proposal/decide"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 17",
+      "archivo": "capturas/06i-buyers-descartar-propuesta.png",
+      "pie": "Descarte de una propuesta con su motivo (sin confirmar)",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Descartar una propuesta",
+      "ruta": "/buyers",
+      "fuente": [
+        {
+          "archivo": "src/app/buyer-panel.tsx",
+          "funciones": [
+            "Proposal (modo discard)",
+            "decide"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-agent.ts",
+          "funciones": [
+            "decidirPropuesta",
+            "decisionSchema"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "POST buyer/proposal/decide"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 18",
+      "archivo": "capturas/07-leads.png",
+      "pie": "Listado de Leads por prioridad",
+      "modulo": "E) LEADS · AGENTE NEGOCIADOR",
+      "opcion": "Listado de leads",
+      "ruta": "/leads",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "StagePage",
+            "StageTable",
+            "useData"
+          ]
+        },
+        {
+          "archivo": "src/lib/priorities.ts",
+          "funciones": [
+            "prioritize"
+          ]
+        },
+        {
+          "archivo": "src/lib/stage-agents.ts",
+          "funciones": [
+            "buildLeadProfile",
+            "stageAgentInstructions"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"contacts\")",
+            "POST radar/send"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 19",
+      "archivo": "capturas/08-payers.png",
+      "pie": "Listado de Payers por prioridad",
+      "modulo": "F) PAYERS · AGENTE DE COBRANZA",
+      "opcion": "Listado de payers",
+      "ruta": "/payers",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "StagePage",
+            "StageTable"
+          ]
+        },
+        {
+          "archivo": "src/lib/priorities.ts",
+          "funciones": [
+            "prioritize"
+          ]
+        },
+        {
+          "archivo": "src/lib/stage-agents.ts",
+          "funciones": [
+            "assessPayerOnboarding",
+            "shouldSendRenewalNotice"
+          ]
+        },
+        {
+          "archivo": "src/lib/jobs.ts",
+          "funciones": [
+            "scanSchedules",
+            "processNextJob"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"contacts\")"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 20",
+      "archivo": "capturas/09-customers.png",
+      "pie": "Listado de Customers por prioridad",
+      "modulo": "G) CUSTOMERS · AGENTE DE FIDELIZACIÓN Y ACOMPAÑAMIENTO",
+      "opcion": "Listado de customers",
+      "ruta": "/customers",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "StagePage",
+            "StageTable"
+          ]
+        },
+        {
+          "archivo": "src/lib/priorities.ts",
+          "funciones": [
+            "prioritize"
+          ]
+        },
+        {
+          "archivo": "src/lib/lifecycle.ts",
+          "funciones": [
+            "lifecycleContext",
+            "prepareLifecycle"
+          ]
+        },
+        {
+          "archivo": "src/lib/lifecycle-policy.ts",
+          "funciones": [
+            "lifecycleRisk",
+            "activityAssessment",
+            "CUSTOMER_INACTIVITY_DAYS"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"contacts\")"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 21",
+      "archivo": "capturas/10-turned.png",
+      "pie": "Listado de Turned por prioridad",
+      "modulo": "H) TURNED · AGENTE DE REACTIVACIÓN Y POSTVENTA",
+      "opcion": "Listado de turned",
+      "ruta": "/turned",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "StagePage",
+            "StageTable"
+          ]
+        },
+        {
+          "archivo": "src/lib/lifecycle-policy.ts",
+          "funciones": [
+            "recoveryWindow",
+            "classifyTurnedReason",
+            "declaredExitReason",
+            "reactivated",
+            "TURNED_CONTACT_WINDOW_DAYS"
+          ]
+        },
+        {
+          "archivo": "src/lib/lifecycle.ts",
+          "funciones": [
+            "lifecycleContext",
+            "prepareLifecycle"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"contacts\")"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 22",
+      "archivo": "capturas/11a-perfil-datos.png",
+      "pie": "Perfil del contacto: cabecera y datos del datamart",
+      "modulo": "I) PERFIL DEL CONTACTO",
+      "opcion": "Datos del contacto y ejecución del agente",
+      "ruta": "/contact/{id}",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "ContactPage",
+            "InsightCard",
+            "Tag"
+          ]
+        },
+        {
+          "archivo": "src/lib/contacts.ts",
+          "funciones": [
+            "contact",
+            "recommend"
+          ]
+        },
+        {
+          "archivo": "src/lib/jobs.ts",
+          "funciones": [
+            "enqueue",
+            "processNextJob"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"contact\")",
+            "POST agent/run"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 23",
+      "archivo": "capturas/11b-perfil-conversacion.png",
+      "pie": "Conversación del contacto y compositor de mensajes",
+      "modulo": "I) PERFIL DEL CONTACTO",
+      "opcion": "Conversación y envío de mensajes",
+      "ruta": "/contact/{id}",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "ContactPage (panel Chat y correo)"
+          ]
+        },
+        {
+          "archivo": "src/lib/messaging.ts",
+          "funciones": [
+            "sendMessage",
+            "messagePermission",
+            "withinSendHours",
+            "receiveMessage"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "POST message/send",
+            "POST message/inbound"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 24",
+      "archivo": "capturas/11c-perfil-correccion-revision.png",
+      "pie": "Corrección auditada y revisión humana de prioridad o beca",
+      "modulo": "I) PERFIL DEL CONTACTO",
+      "opcion": "Corrección auditada y revisión humana",
+      "ruta": "/contact/{id}",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "ContactPage (columna lateral)"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "POST contact/override",
+            "POST priority/manual"
+          ]
+        },
+        {
+          "archivo": "src/lib/contacts.ts",
+          "funciones": [
+            "contact",
+            "event"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 25",
+      "archivo": "capturas/11d-perfil-ciclo-customer.png",
+      "pie": "Panel del Agente de Fidelización y Acompañamiento (Customer)",
+      "modulo": "I) PERFIL DEL CONTACTO",
+      "opcion": "Panel de ciclo de vida de Customer",
+      "ruta": "/contact/{id}",
+      "fuente": [
+        {
+          "archivo": "src/app/lifecycle-panel.tsx",
+          "funciones": [
+            "LifecyclePanel"
+          ]
+        },
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "ContactPage"
+          ]
+        },
+        {
+          "archivo": "src/lib/lifecycle-policy.ts",
+          "funciones": [
+            "lifecycleAssessment",
+            "lifecycleRisk",
+            "activityAssessment",
+            "academicAssessment",
+            "pendingServiceReview"
+          ]
+        },
+        {
+          "archivo": "src/lib/lifecycle.ts",
+          "funciones": [
+            "lifecycleContext",
+            "prepareLifecycle"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "POST lifecycle/resolve"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 26",
+      "archivo": "capturas/11e-perfil-reportes-semanales.png",
+      "pie": "Reportes semanales de seguimiento académico",
+      "modulo": "I) PERFIL DEL CONTACTO",
+      "opcion": "Reportes semanales (Customer)",
+      "ruta": "/contact/{id}",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "ContactPage (sección Reportes semanales)"
+          ]
+        },
+        {
+          "archivo": "src/lib/lifecycle-policy.ts",
+          "funciones": [
+            "academicAssessment",
+            "academicVariationPercent"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"contact\")"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 27",
+      "archivo": "capturas/11f-perfil-ciclo-turned.png",
+      "pie": "Panel del Agente de Reactivación y Postventa (Turned)",
+      "modulo": "I) PERFIL DEL CONTACTO",
+      "opcion": "Panel de ciclo de vida de Turned",
+      "ruta": "/contact/{id}",
+      "fuente": [
+        {
+          "archivo": "src/app/lifecycle-panel.tsx",
+          "funciones": [
+            "LifecyclePanel"
+          ]
+        },
+        {
+          "archivo": "src/lib/lifecycle-policy.ts",
+          "funciones": [
+            "lifecycleAssessment",
+            "recoveryWindow",
+            "reactivationAttributionWindow",
+            "classifyTurnedReason"
+          ]
+        },
+        {
+          "archivo": "src/lib/lifecycle.ts",
+          "funciones": [
+            "lifecycleContext",
+            "prepareLifecycle"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 28",
+      "archivo": "capturas/11g-perfil-historial.png",
+      "pie": "Historial de acciones del contacto",
+      "modulo": "I) PERFIL DEL CONTACTO",
+      "opcion": "Historial de acciones",
+      "ruta": "/contact/{id}",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "ContactPage (sección Historial de acciones)"
+          ]
+        },
+        {
+          "archivo": "src/lib/contacts.ts",
+          "funciones": [
+            "contactHistory",
+            "event"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"contact\")"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 29",
+      "archivo": "capturas/12-aprobaciones.png",
+      "pie": "Aprobaciones pendientes",
+      "modulo": "J) APROBACIONES",
+      "opcion": "Decisiones pendientes",
+      "ruta": "/approvals",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "ApprovalsPage"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"approvals\")",
+            "POST approval/decide"
+          ]
+        },
+        {
+          "archivo": "src/lib/jobs.ts",
+          "funciones": [
+            "enqueue",
+            "processNextJob (trabajo OFFER)"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 30",
+      "archivo": "capturas/13-campanas.png",
+      "pie": "Campañas: nueva campaña y campañas registradas",
+      "modulo": "K) CAMPAÑAS",
+      "opcion": "Campañas con control",
+      "ruta": "/campaigns",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "CampaignsPage"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"campaigns\")",
+            "POST campaign/create",
+            "POST campaign/approve",
+            "POST campaign/run"
+          ]
+        },
+        {
+          "archivo": "src/lib/jobs.ts",
+          "funciones": [
+            "enqueue",
+            "processNextJob (trabajo CAMPAIGN)"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 31",
+      "archivo": "capturas/14-examenes.png",
+      "pie": "Importación y verificación de exámenes de admisión",
+      "modulo": "L) EXÁMENES DE ADMISIÓN",
+      "opcion": "Importar y verificar resultados",
+      "ruta": "/exams",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "ExamsPage",
+            "ReviewEntry"
+          ]
+        },
+        {
+          "archivo": "src/lib/exams.ts",
+          "funciones": [
+            "parseExamFile",
+            "importExam",
+            "confirmExamMatch",
+            "normalizeName"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"exams\")",
+            "POST exam/upload",
+            "POST exam/match"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 32",
+      "archivo": "capturas/15-trabajos.png",
+      "pie": "Cola de trabajos del servidor",
+      "modulo": "M) TRABAJOS DEL SERVIDOR",
+      "opcion": "Cola de trabajos",
+      "ruta": "/jobs",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "JobsPage"
+          ]
+        },
+        {
+          "archivo": "src/lib/jobs.ts",
+          "funciones": [
+            "enqueue",
+            "scanSchedules",
+            "processNextJob",
+            "nextSendWindow"
+          ]
+        },
+        {
+          "archivo": "scripts/worker.ts",
+          "funciones": [
+            "(bucle del worker)"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"jobs\")"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 33",
+      "archivo": "capturas/16-configuracion.png",
+      "pie": "Pantalla de Configuración",
+      "modulo": "N) CONFIGURACIÓN",
+      "opcion": "Vista general de Configuración",
+      "ruta": "/settings",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "SettingsPage"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"settings\")"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 34",
+      "archivo": "capturas/16a-configuracion-proveedor-ia.png",
+      "pie": "Proveedor y modelo de inteligencia artificial",
+      "modulo": "N) CONFIGURACIÓN",
+      "opcion": "Proveedor y modelo de IA",
+      "ruta": "/settings",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "SettingsPage",
+            "save"
+          ]
+        },
+        {
+          "archivo": "src/lib/ai.ts",
+          "funciones": [
+            "aiConfig"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "POST settings"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 35",
+      "archivo": "capturas/16b-configuracion-conexiones-seguimiento.png",
+      "pie": "Estado de conexiones y plazo de seguimiento",
+      "modulo": "N) CONFIGURACIÓN",
+      "opcion": "Estado de conexiones y plazo de seguimiento",
+      "ruta": "/settings",
+      "fuente": [
+        {
+          "archivo": "src/app/client.tsx",
+          "funciones": [
+            "SettingsPage",
+            "saveFollowup"
+          ]
+        },
+        {
+          "archivo": "src/lib/radar.ts",
+          "funciones": [
+            "radarConfig",
+            "assessConversation"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET (rama path === \"settings\")",
+            "POST settings/followup"
+          ]
+        }
+      ]
+    }
+  ]
+}

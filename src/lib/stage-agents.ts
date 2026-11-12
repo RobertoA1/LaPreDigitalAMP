@@ -13,8 +13,6 @@ export const stageProposalSchema = z.object({
 }).strict();
 
 export type StageProposal = z.infer<typeof stageProposalSchema>;
-export type BuyerIntentType = 'PRICE_QUERY' | 'INFORMATION_REQUEST' | 'ENROLLMENT_QUESTION' | 'TRIAL_ACTIVATION';
-export type BuyerSignal = { type: BuyerIntentType; evidence: string; recommendation: string };
 export type NegotiationPriority = 'ALTA' | 'MEDIA' | 'BAJA';
 export type LeadProfile = {
   career: string | null;
@@ -33,7 +31,6 @@ export type LeadProfile = {
 };
 
 export const stageAgentInstructions: Partial<Record<Stage, string>> = {
-  BUYER: `Eres el Agente de Marketing IMPULSE para BUYERS. Identifica señales comerciales sin cambiar la etapa: el datamart es la única fuente de transiciones. Usa únicamente nombre, carrera y universidad confirmados. Detecta interés por información, precio, inscripción o activación de prueba, prioriza responder la necesidad y recomienda revisar Buyer → Lead cuando haya intención observable. No repitas una invitación a la prueba gratuita que ya aparezca en el historial. No inventes precios, campañas, universidades, beneficios ni datos.`,
   LEAD: `Eres el Agente Negociador IMPULSE para LEADS. Acompaña sin presión hacia un siguiente paso. Usa la carrera, dificultades, disponibilidad, plan, estado de prueba y responsable económico solo si están confirmados en el datamart o expresados por el contacto. Identifica los campos esenciales ausentes y haz como máximo una pregunta, solo sobre un campo ausente. Una consulta de precio no es una solicitud de descuento ni crea aprobación. Ante solicitud explícita de descuento, beca, semibeca o condición especial, escala al operador sin prometerla. No inventes probabilidades de conversión, precios vigentes, pagos ni cambios de etapa.`,
   PAYER: `Eres el Agente de Servicio IMPULSE para PAYERS. Acompaña desde el primer pago confirmado por el datamart. Durante los primeros tres días, ayuda a verificar acceso, diagnóstico inicial, configuración de ruta y primera actividad, atendiendo solo hechos confirmados. Los campos desconocidos son NO_DATA: no afirmes que el estudiante ingresó, completó un diagnóstico, configuró una ruta o realizó actividad si no hay evidencia. Si se detecta inactividad temprana con datos verificables, propone ayuda concreta. Los recordatorios de renovación solo proceden con fecha y estado vigentes del datamart. Distingue estudiante y apoderado; no modifiques pagos, planes ni suscripciones.`,
   CUSTOMER: `Eres el Agente de Fidelización y Acompañamiento. Analiza actividad, cumplimiento semanal, progreso académico comparable, incidencias, satisfacción e intención de cancelar. Cinco días sin actividad requieren una propuesta breve después de revisar el historial y pendientes. Dos evaluaciones equivalentes consecutivas sin mejora o una caída de 10 % requieren refuerzo; calcula la variación como (actual - anterior) / valor absoluto del anterior * 100. Distingue hechos confirmados de indicios, no inventes tareas, no cambies rutas y deja ajustes académicos como pendientes si no existe una herramienta real. Meta UNT y Meta UNT Plus se derivan al componente académico; Ruta UNT permite proponer una revisión puntual. Los reportes al apoderado solo corresponden a Meta UNT Plus con autorización.`,
@@ -59,44 +56,6 @@ export function parseStructuredProposal(raw: string): StageProposal {
 
 function normalized(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
-}
-
-export function detectBuyerIntent(message: string): BuyerSignal[] {
-  const value = normalized(message);
-  const signals: BuyerSignal[] = [];
-  const evidence = message.trim().slice(0, 500);
-  const add = (type: BuyerIntentType, recommendation: string) => {
-    if (!signals.some(signal => signal.type === type)) signals.push({ type, evidence, recommendation });
-  };
-  if (/\b(precio|precios|cuanto cuesta|cuanto vale|costo|costos|tarifa|valor del plan)\b/.test(value)) {
-    add('PRICE_QUERY', 'Responder con precios vigentes verificados; no inferir ni ofrecer descuentos.');
-  }
-  if (/\b(informacion|informarme|mas informacion|como funciona|que incluye|quiero saber|me interesa conocer)\b/.test(value)) {
-    add('INFORMATION_REQUEST', 'Compartir información confirmada del servicio y resolver la duda concreta.');
-  }
-  if (/\b(inscribirme|inscripcion|inscribir|matricularme|matricula|registrarme|registro|contratar|como me inscribo)\b/.test(value)) {
-    add('ENROLLMENT_QUESTION', 'Orientar sobre el siguiente paso de inscripción sin cambiar la etapa del datamart.');
-  }
-  if (/\b(activar|activo|active|activa|activacion|iniciar)\b/.test(value) && /\b(prueba|gratis|gratuita|explora|periodo de prueba)\b/.test(value)) {
-    add('TRIAL_ACTIVATION', 'Verificar el estado de la prueba gratuita y ayudar con su activación.');
-  }
-  return signals;
-}
-
-export function buyerOffersAlreadyPresented(messages: MessageLike[]) {
-  const offers = new Set<string>();
-  for (const message of messages.filter(item => item.direction === 'OUT')) {
-    const value = normalized(message.body);
-    if (/\b(explora|prueba gratuita|prueba de 14|14 dias)\b/.test(value)) offers.add('TRIAL');
-    if (/\b(descuentos?|becas?|semibecas?|cupon(?:es)?|promocion(?:es)?|promos?)\b|\b\d{1,2}\s?%/.test(value)) offers.add('BENEFIT');
-  }
-  return [...offers];
-}
-
-export function buyerDraftRepeatsOffer(draft: string, priorOffers: string[]) {
-  const value = normalized(draft);
-  return (priorOffers.includes('TRIAL') && /\b(explora|prueba gratuita|prueba de 14|14 dias)\b/.test(value))
-    || (priorOffers.includes('BENEFIT') && /\b(descuentos?|becas?|semibecas?|cupon(?:es)?|promocion(?:es)?|promos?)\b|\b\d{1,2}\s?%/.test(value));
 }
 
 export function isExplicitBenefitRequest(message: string) {

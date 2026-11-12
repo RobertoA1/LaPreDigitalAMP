@@ -53,7 +53,7 @@ async function main() {
     for (const [weeksAgo, score] of [[2, 61], [1, 68]] as const) await db.dm_academic_weekly.create({ contactId, weekStart: new Date(Date.now() - weeksAgo * 7 * 86400000).toISOString().slice(0, 10), activitiesCompleted: weeksAgo === 1 ? 8 : 6, activitiesPlanned: 10, score, simulations: weeksAgo === 1 ? 2 : 1, missingCourses: 'Matemática', createdAt: new Date() });
   }
   if (!(await db.dm_funnel_daily.findOne())) await db.dm_funnel_daily.create({ snapshotDate: new Date().toISOString().slice(0, 10), universe: 80, buyers: 18, leads: 14, payers: 10, customers: 7, turned: 3, reactivated: 1, revenue: 1547.30, createdAt: new Date() });
-  if (!(await db.amp_settings.findOne({ where: { key: 'ai' } }))) await db.amp_settings.create({ key: 'ai', value: JSON.stringify({ provider: 'OPENAI', model: 'gpt-5-nano' }), updatedAt: new Date() });
+  if (!(await db.amp_settings.findOne({ where: { key: 'ai' } }))) await db.amp_settings.create({ key: 'ai', value: JSON.stringify({ provider: 'OPENAI', model: 'gpt-5-mini' }), updatedAt: new Date() });
   console.log('Demo cargada. Usuarios: admin@lapredigital.local, direccion@lapredigital.local y operador@lapredigital.local. Contraseña: Demo1234!');
   await getDb().close();
 }

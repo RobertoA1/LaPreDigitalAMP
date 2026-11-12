@@ -11,6 +11,7 @@ import type { Contact, Channel } from './types';
 import { assessPayerOnboarding, shouldSendRenewalNotice } from './stage-agents';
 import { isLifecycle, recoveryWindow, reactivated, reactivationAttributionWindow } from './lifecycle-policy';
 import { lifecycleAutomaticBlock, prepareLifecycle } from './lifecycle';
+import { executeRun, scanBuyerSchedules } from './buyer-agent';
 
 export async function enqueue(kind: string, contactId: number | null, payload: object = {}, runAt = new Date(), dedupeKey?: string) {
   const db = tables();
@@ -39,6 +40,7 @@ export async function scanSchedules(now = new Date()) {
     const c = await contact(base.id);
     if (!c) continue;
     const stageVersion = await syncStage(c);
+    if (c.stage === 'BUYER') continue; // Sin agente conversacional: no se programan envíos para buyers.
     if (c.contactPaused || c.admissionStatus === 'ADMITTED') continue;
     if (recoveryWindow(c, now).allowed) {
       await enqueue('AGENT', c.id, {}, now, `stage:${c.sourceKey}:${stageVersion}`); scheduled++;
@@ -127,13 +129,16 @@ async function matchNewBuyers() {
 export async function processNextJob() {
   const db = tables();
   const now = new Date();
-  const candidate = plain<any>(await db.amp_jobs.findOne({ where: { [Op.or]: [{ status: 'PENDING', runAt: { [Op.lte]: now } }, { status: 'RUNNING', leaseUntil: { [Op.lt]: now } }] }, order: [['runAt', 'ASC']] }));
-  if (!candidate) return false;
-  const [claimed] = await db.amp_jobs.update({ status: 'RUNNING', leaseUntil: new Date(now.getTime() + 5 * 60 * 1000), attempts: candidate.attempts + 1 }, { where: { id: candidate.id, status: candidate.status, leaseUntil: candidate.leaseUntil } });
+  // Primero solo el id: ordenar filas completas arrastra columnas TEXT (payload, lastError) y SQL Server pide una concesión de memoria enorme.
+  const pick = plain<any>(await db.amp_jobs.findOne({ attributes: ['id'], where: { [Op.or]: [{ status: 'PENDING', runAt: { [Op.lte]: now } }, { status: 'RUNNING', leaseUntil: { [Op.lt]: now } }] }, order: [['runAt', 'ASC']] }));
+  if (!pick) return false;
+  const candidate = plain<any>(await db.amp_jobs.findByPk(pick.id));
+  if (!candidate) return true;
+  const [claimed] = await db.amp_jobs.update({ status: 'RUNNING', leaseUntil: new Date(now.getTime() + (candidate.kind === 'BUYER_RUN' ? 20 : 5) * 60 * 1000), attempts: candidate.attempts + 1 }, { where: { id: candidate.id, status: candidate.status, leaseUntil: candidate.leaseUntil } });
   if (!claimed) return true;
   try {
     const payload = JSON.parse(candidate.payload || '{}');
-if (!['ANALYZE', 'INBOUND', 'LIFECYCLE'].includes(candidate.kind) && !(candidate.kind === 'PAYER_ONBOARDING' && payload.mode === 'INACTIVITY_CHECK') && !payload.inbound && !withinSendHours(now)) {
+if (!['ANALYZE', 'INBOUND', 'LIFECYCLE', 'BUYER_RUN'].includes(candidate.kind) && !(candidate.kind === 'PAYER_ONBOARDING' && payload.mode === 'INACTIVITY_CHECK') && !payload.inbound && !withinSendHours(now)) {
       await db.amp_jobs.update({ status: 'PENDING', runAt: nextSendWindow(now), leaseUntil: null }, { where: { id: candidate.id } });
       return true;
     }
@@ -143,7 +148,8 @@ if (!['ANALYZE', 'INBOUND', 'LIFECYCLE'].includes(candidate.kind) && !(candidate
       await event(candidate.contactId, candidate.kind === 'RENEWAL' ? 'RENEWAL_CANCELLED' : 'LIFECYCLE_SEND_BLOCKED', candidate.kind === 'RENEWAL' ? 'Recordatorio de renovación cancelado por una pausa, revisión o cambio de vigencia.' : 'Envío automático omitido por revisión de servicio o plazo de recuperación.', 'SYSTEM', 'worker');
       return true;
     }
-    if (candidate.kind === 'LIFECYCLE') await prepareLifecycle(candidate.contactId);
+    if (candidate.kind === 'BUYER_RUN') await executeRun(Number(payload.runId), { reintento: candidate.attempts > 0 }); // sin contacto: no envía nada, solo prepara borradores
+    else if (candidate.kind === 'LIFECYCLE') await prepareLifecycle(candidate.contactId);
     else if (candidate.kind === 'INBOUND') await processInbound(payload.messageId);
     else if (candidate.kind === 'ANALYZE') await runRadar(candidate.contactId, payload, now);
     else if (candidate.kind === 'AGENT' || candidate.kind === 'ACADEMIC') await runAgent(candidate.contactId, !!payload.inbound);
@@ -212,6 +218,10 @@ if (c && c.renewalAt && shouldSendRenewalNotice(c, payload.expectedRenewalAt) &&
   } catch (error) {
     const attempts = candidate.attempts + 1;
     await db.amp_jobs.update({ status: attempts >= 3 ? 'FAILED' : 'PENDING', runAt: new Date(Date.now() + attempts * 60_000), leaseUntil: null, lastError: String(error) }, { where: { id: candidate.id } });
+    if (candidate.kind === 'BUYER_RUN' && attempts >= 3) {
+      const runId = Number(JSON.parse(candidate.payload || '{}').runId);
+      if (runId) await db.amp_buyer_runs.update({ status: 'FAILED', error: String(error).slice(0, 4000), finishedAt: new Date() }, { where: { id: runId, status: { [Op.in]: ['PENDING', 'RUNNING'] } } });
+    }
     await event(candidate.contactId, 'JOB_ERROR', `Trabajo ${candidate.kind}: ${String(error)}`, 'SYSTEM', 'worker');
   }
   return true;

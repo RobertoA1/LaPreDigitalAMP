@@ -1,8 +1,26 @@
-import { DataTypes } from 'sequelize';
-import { getDb } from '../src/lib/db';
+import { DataTypes, type ModelAttributes } from 'sequelize';
+import { crearConexionMssql, getDb } from '../src/lib/db';
 import { specs } from '../src/lib/schema';
 
+/** Sequelize anota `field` en las definiciones y las constantes del esquema se comparten entre columnas y tablas: sin clonar y quitar `field`, las columnas se renombran o se pierden. */
+function clonar(attributes: ModelAttributes): ModelAttributes {
+  return Object.fromEntries(Object.entries(attributes).map(([key, definition]) => [key, typeof definition === 'object' ? (({ field, ...resto }) => resto)(definition as any) : definition])) as ModelAttributes;
+}
+
+/** Con SQL Server crea la base DB_NAME si no existe (conectando a master). Solo toca la base propia del AMP. */
+async function crearBaseSiNoExiste() {
+  const dialect = process.env.DB_DIALECT || (process.env.DEMO_MODE === 'true' ? 'sqlite' : 'mssql');
+  if (dialect !== 'mssql') return;
+  const nombre = process.env.DB_NAME || 'LaPreDigitalAMP';
+  if (!/^[A-Za-z0-9_]+$/.test(nombre)) throw new Error('DB_NAME solo admite letras, números y guion bajo');
+  const master = crearConexionMssql('master', 'DB');
+  try {
+    await master.query(`IF DB_ID(N'${nombre}') IS NULL CREATE DATABASE [${nombre}]`);
+  } finally { await master.close(); }
+}
+
 async function main() {
+  await crearBaseSiNoExiste();
   const db = getDb();
   await db.authenticate();
   const qi = db.getQueryInterface();
@@ -15,7 +33,7 @@ async function main() {
     for (const [table, attributes] of Object.entries(specs)) {
       if (table === 'dm_academic_weekly' || table === 'amp_contact_state' || table === 'amp_insights' || table === 'amp_inbound_triage') continue;
       const initial = table === 'dm_contacts' ? Object.fromEntries(Object.entries(attributes).filter(([field]) => field !== 'stageChangedAt')) : table === 'amp_messages' ? Object.fromEntries(Object.entries(attributes).filter(([field]) => !['recipientKind', 'replyToId'].includes(field))) : attributes;
-      await qi.createTable(table, initial);
+      await qi.createTable(table, clonar(initial as ModelAttributes));
     }
     await qi.addIndex('dm_contacts', ['stage']);
     await qi.addIndex('amp_events', ['contactId', 'createdAt']);
@@ -34,9 +52,9 @@ async function main() {
   }
   const third = '003_academic_weekly_and_stage_date';
   if (!done.has(third)) {
-    await qi.createTable('dm_academic_weekly', specs.dm_academic_weekly);
+    await qi.createTable('dm_academic_weekly', clonar(specs.dm_academic_weekly));
     await qi.addIndex('dm_academic_weekly', ['contactId', 'weekStart']);
-    await qi.addColumn('dm_contacts', 'stageChangedAt', specs.dm_contacts.stageChangedAt);
+    await qi.addColumn('dm_contacts', 'stageChangedAt', clonar({ x: specs.dm_contacts.stageChangedAt }).x as any);
     await db.query('INSERT INTO amp_migrations (name, appliedAt) VALUES (:name, :appliedAt)', { replacements: { name: third, appliedAt: new Date() } });
     console.log(`Migración aplicada: ${third}`);
   }
@@ -48,13 +66,13 @@ async function main() {
   }
   const fifth = '005_contact_stage_state';
   if (!done.has(fifth)) {
-    await qi.createTable('amp_contact_state', specs.amp_contact_state);
+    await qi.createTable('amp_contact_state', clonar(specs.amp_contact_state));
     await db.query('INSERT INTO amp_migrations (name, appliedAt) VALUES (:name, :appliedAt)', { replacements: { name: fifth, appliedAt: new Date() } });
     console.log(`Migración aplicada: ${fifth}`);
   }
   const sixth = '006_conversation_radar';
   if (!done.has(sixth)) {
-    await qi.createTable('amp_insights', specs.amp_insights);
+    await qi.createTable('amp_insights', clonar(specs.amp_insights));
     await qi.addIndex('amp_insights', ['contactId', 'status']);
     await qi.addIndex('amp_insights', ['status', 'alert', 'createdAt']);
     await db.query('INSERT INTO amp_migrations (name, appliedAt) VALUES (:name, :appliedAt)', { replacements: { name: sixth, appliedAt: new Date() } });
@@ -62,11 +80,38 @@ async function main() {
   }
   const seventh = '007_inbound_triage';
   if (!done.has(seventh)) {
-    if (!('replyToId' in await qi.describeTable('amp_messages'))) await qi.addColumn('amp_messages', 'replyToId', specs.amp_messages.replyToId);
-    await qi.createTable('amp_inbound_triage', specs.amp_inbound_triage);
+    if (!('replyToId' in await qi.describeTable('amp_messages'))) await qi.addColumn('amp_messages', 'replyToId', clonar({ x: specs.amp_messages.replyToId }).x as any);
+    await qi.createTable('amp_inbound_triage', clonar(specs.amp_inbound_triage));
     await qi.addIndex('amp_inbound_triage', ['contactId', 'createdAt']);
     await db.query('INSERT INTO amp_migrations (name, appliedAt) VALUES (:name, :appliedAt)', { replacements: { name: seventh, appliedAt: new Date() } });
     console.log(`Migración aplicada: ${seventh}`);
+  }
+  const eighth = '008_buyer_lead_agent';
+  if (!done.has(eighth)) {
+    for (const table of ['amp_buyer_notifications', 'amp_buyer_runs', 'amp_buyer_proposals']) await qi.createTable(table, clonar(specs[table]));
+    await qi.addIndex('amp_buyer_notifications', ['occurredAt']);
+    await qi.addIndex('amp_buyer_notifications', ['receivedAt']);
+    await qi.addIndex('amp_buyer_runs', ['status', 'createdAt']);
+    await qi.addIndex('amp_buyer_runs', ['activity', 'createdAt']);
+    await qi.addIndex('amp_buyer_proposals', ['runId']);
+    await qi.addIndex('amp_buyer_proposals', ['status', 'activity']);
+    await db.query('INSERT INTO amp_migrations (name, appliedAt) VALUES (:name, :appliedAt)', { replacements: { name: eighth, appliedAt: new Date() } });
+    console.log(`Migración aplicada: ${eighth}`);
+  }
+  const ninth = '009_repair_shared_attribute_columns';
+  if (!done.has(ninth)) {
+    // Causa: Sequelize anota `field` en las definiciones compartidas del esquema (text, date, number, createdAt) al crear tablas; en bases creadas antes
+    // de la corrección faltan columnas o quedaron con otro nombre. Aquí solo se AÑADEN las que falten (nullables; sin borrar ni renombrar nada).
+    for (const [table, attributes] of Object.entries(specs)) {
+      const actuales = await qi.describeTable(table);
+      for (const [column, definition] of Object.entries(clonar(attributes))) {
+        if (column in actuales) continue;
+        await qi.addColumn(table, column, { ...(definition as object), allowNull: true, primaryKey: false, autoIncrement: false } as any);
+        console.log(`Columna añadida: ${table}.${column}`);
+      }
+    }
+    await db.query('INSERT INTO amp_migrations (name, appliedAt) VALUES (:name, :appliedAt)', { replacements: { name: ninth, appliedAt: new Date() } });
+    console.log(`Migración aplicada: ${ninth}`);
   }
   await db.close();
 }

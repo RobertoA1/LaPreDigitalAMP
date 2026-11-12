@@ -1,0 +1,1 @@
+{"name":"herramientas-codigo","private":true,"type":"module","dependencies":{"docx":"^9.5.1","prettier":"^3.3.3","typescript":"^5.6.3"}}

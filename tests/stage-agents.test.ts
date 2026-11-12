@@ -3,8 +3,7 @@ import test from 'node:test';
 import type { Contact } from '../src/lib/types';
 import { messagePermission } from '../src/lib/messaging';
 import {
-  alreadyRecordedForMessage, assessPayerOnboarding, buildLeadProfile, detectBuyerIntent,
-  buyerDraftRepeatsOffer, buyerOffersAlreadyPresented,
+  alreadyRecordedForMessage, assessPayerOnboarding, buildLeadProfile,
   explicitBenefitApproval, isExplicitBenefitRequest, isExplicitDiscountRequest, leadApprovalKind, parseStructuredProposal,
   payerDraftClaimsUnconfirmedFacts, shouldSendRenewalNotice
 } from '../src/lib/stage-agents';
@@ -43,30 +42,11 @@ test('solicitud explícita de beneficio se identifica para aprobación humana', 
   assert.equal(leadApprovalKind('', 'DISCOUNT', 'Te podemos dar un descuento'), 'OFFER_REVIEW');
 });
 
-test('buyer que manifiesta intención deja señales tipadas con evidencia', () => {
-  const signals = detectBuyerIntent('¿Cuánto cuesta y cómo activo la prueba gratuita?');
-  assert.deepEqual(signals.map(signal => signal.type), ['PRICE_QUERY', 'TRIAL_ACTIVATION']);
-  assert.ok(signals.every(signal => signal.evidence.includes('prueba gratuita')));
-  assert.ok(signals.every(signal => signal.recommendation.includes('verificad') || signal.recommendation.includes('activación')));
-  assert.deepEqual(detectBuyerIntent('Necesito información para inscribirme.').map(signal => signal.type), ['INFORMATION_REQUEST', 'ENROLLMENT_QUESTION']);
-});
-
 test('no vuelve a registrar una señal del mismo tipo para el mismo mensaje', () => {
   const events = [{ detail: JSON.stringify({ messageId: 42, intentType: 'PRICE_QUERY' }) }];
   assert.equal(alreadyRecordedForMessage(events, 42, 'PRICE_QUERY'), true);
   assert.equal(alreadyRecordedForMessage(events, 42, 'TRIAL_ACTIVATION'), false);
   assert.equal(alreadyRecordedForMessage(events, 43, 'PRICE_QUERY'), false);
-});
-
-test('buyer evita repetir ofertas que ya aparecen en mensajes salientes', () => {
-  const offers = buyerOffersAlreadyPresented([
-    { direction: 'IN', body: '¿Qué ofrecen?' },
-    { direction: 'OUT', body: 'Puedes iniciar la prueba Explora UNT de 14 días.' },
-    { direction: 'OUT', body: 'Además, existe una promoción aprobada.' }
-  ]);
-  assert.deepEqual(offers.sort(), ['BENEFIT', 'TRIAL']);
-  assert.equal(buyerDraftRepeatsOffer('¿Te gustaría activar la prueba Explora?', offers), true);
-  assert.equal(buyerDraftRepeatsOffer('¿Qué información te ayudaría a decidir?', offers), false);
 });
 
 test('perfil de lead identifica campos esenciales faltantes', () => {

@@ -53,6 +53,7 @@ export async function scanRadar(now = new Date()) {
       await db.amp_insights.update({ status: 'SUPERSEDED', updatedAt: now }, { where: { contactId: c.id, status: 'OPEN', phase: { [Op.notIn]: ['MANUAL_REPLY', 'LIFECYCLE'] } } });
       continue;
     }
+    if (c.stage === 'BUYER') continue; // Los buyers ya no tienen conversación ni Radar.
     if (c.contactPaused || (c.stage === 'TURNED' && c.admissionStatus === 'ADMITTED')) {
       await db.amp_insights.update({ status: 'SUPERSEDED', updatedAt: now }, { where: { contactId: c.id, status: 'OPEN', phase: { [Op.ne]: 'MANUAL_REPLY' } } });
       continue;
@@ -117,7 +118,7 @@ function suggestedChannel(c: Contact, messages: ConversationMessage[]): Channel 
 export async function runRadar(contactId: number, expected: { key: string; sourceMessageId: number; phase: string; maxDays: number }, now = new Date()) {
   const db = tables();
   const c = await contact(contactId);
-  if (!c || c.contactPaused || (c.stage === 'TURNED' && c.admissionStatus === 'ADMITTED')) return { skipped: true };
+  if (!c || c.stage === 'BUYER' || c.contactPaused || (c.stage === 'TURNED' && c.admissionStatus === 'ADMITTED')) return { skipped: true };
   if (isLifecycle(c.stage) && await lifecycleAutomaticBlock(contactId)) return { skipped: true };
   const messages = plainMany<ConversationMessage>(await db.amp_messages.findAll({ where: { contactId }, order: [['createdAt', 'ASC'], ['id', 'ASC']] }));
   const currentMax = (await radarConfig()).maxDays;
@@ -130,7 +131,7 @@ export async function runRadar(contactId: number, expected: { key: string; sourc
   let draft = fallbackDraft(c, assessment.phase, messages), provider = 'RULES', model = 'RULES';
   if (draft && !isLifecycle(c.stage)) {
     try {
-      if (['BUYER', 'LEAD', 'PAYER'].includes(c.stage)) {
+      if (['LEAD', 'PAYER'].includes(c.stage)) {
         const result = await generate(`${promptForStage(c.stage)}\n\nEres también el Radar transversal. Redacta solo un borrador breve para revisión humana; NO lo envíes. Devuelve el objeto JSON estructurado de la etapa.`, JSON.stringify({ phase: assessment.phase, silenceDays: assessment.silenceDays, stage: c.stage, name: c.fullName, career: c.career, university: c.university, plan: c.plan, strategy: advice, recentMessages: messages.slice(-8).map(m => ({ direction: m.direction, body: m.body })) }));
         const proposal = parseStructuredProposal(result.text);
         if (proposal.draft && proposal.proposalType === 'NONE' && !proposal.needsApproval && !/descuento|beca|semibeca|cup[oó]n|promoci[oó]n|\d{1,3}\s?%/i.test(proposal.draft)) { draft = proposal.draft.slice(0, 4000); provider = result.provider; model = result.model; }

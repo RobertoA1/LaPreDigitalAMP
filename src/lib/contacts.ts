@@ -34,8 +34,7 @@ export async function event(contactId: number | null, type: string, summary: str
 export async function recommend(c: Contact) {
   const recommendations: string[] = [];
   if (c.stage === 'BUYER') {
-    recommendations.push('Adquisición: invitar a conocer la prueba Explora UNT y registrar señales de intención.');
-    if (!c.interestChannel) recommendations.push('Confirmar el medio de comunicación establecido antes de contactar.');
+    recommendations.push('Etapa gestionada por el Agente de conversión Buyer → Lead: no hay conversación ni mensajes con buyers.');
   }
   if (c.stage === 'LEAD') {
     recommendations.push('Activación: resolver dudas sobre el plan y proponer un siguiente paso concreto.');

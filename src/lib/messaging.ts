@@ -18,6 +18,7 @@ export function messagePermission(c: Awaited<ReturnType<typeof contact>>, channe
 export async function sendMessage(contactId: number, channel: Channel, body: string, senderType: 'AGENT' | 'OPERATOR', senderId: string, automatic = false, replying = false, recipientKind: 'STUDENT' | 'GUARDIAN' = 'STUDENT', replyToId?: number) {
   const c = await contact(contactId);
   if (!c) throw new Error('Contacto no encontrado');
+  if (c.stage === 'BUYER') throw new Error('Los buyers no reciben mensajes: los gestiona el Agente de conversión Buyer → Lead');
   if (c.admissionStatus === 'ADMITTED' && c.stage === 'TURNED') throw new Error('Recuperación detenida: ingresó a la universidad');
   if (c.contactPaused) throw new Error('El contacto está pausado');
 if (c.stage === 'TURNED' && !replying) {

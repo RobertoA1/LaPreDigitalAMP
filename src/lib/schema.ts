@@ -100,5 +100,23 @@ export const specs: Record<string, ModelAttributes> = {
     candidateNumber: str(40), fullName: req(200), normalizedName: req(200),
     career: str(120), score: number, result: req(20), nonAdmittedRank: { type: DataTypes.INTEGER, allowNull: true },
     matchedContactId: { type: DataTypes.INTEGER, allowNull: true }, matchConfidence: number, createdAt
+  },
+  // Agente de conversión Buyer → Lead (migración 008). Sin datos personales de los inscritos.
+  amp_buyer_notifications: {
+    id, formId: { type: DataTypes.BIGINT, allowNull: false, unique: true }, visitId: { type: DataTypes.BIGINT, allowNull: true },
+    formStatus: req(20), channel: str(20), campaignId: { type: DataTypes.INTEGER, allowNull: true }, campaignName: str(150),
+    occurredAt: date, verified: bool(), receivedAt: createdAt
+  },
+  amp_buyer_runs: {
+    id, activity: req(4), trigger: req(20), status: req(20),
+    periodFrom: { type: DataTypes.DATEONLY, allowNull: true }, periodTo: { type: DataTypes.DATEONLY, allowNull: true },
+    instructions: text, context: text, analysis: text, provider: str(40), model: str(100), error: text,
+    requestedBy: str(80), createdAt, finishedAt: date
+  },
+  amp_buyer_proposals: {
+    id, runId: { type: DataTypes.INTEGER, allowNull: false }, activity: req(4), kind: req(20),
+    audience: str(20), channel: str(20), campaignType: str(20), videoId: { type: DataTypes.INTEGER, allowNull: true },
+    recommendationType: str(30), title: req(200), content: { type: DataTypes.TEXT, allowNull: false }, rationale: text, evidence: text,
+    status: req(20), editedContent: text, decidedBy: str(80), decidedAt: date, decisionReason: text, createdAt
   }
 };

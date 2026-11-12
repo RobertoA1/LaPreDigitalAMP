@@ -17,6 +17,11 @@ import { stages, type Stage, type Channel } from '@/lib/types';
 import { lifecycleContext, prepareLifecycle } from '@/lib/lifecycle';
 import { isLifecycle } from '@/lib/lifecycle-policy';
 import { planCapabilities } from '@/lib/catalog';
+import { abandonmentQuerySchema, actividadHoy, buyerKpis, curvaAbandono, kpisQuerySchema, periodoPorDefecto } from '@/lib/buyer-kpis';
+import { inscripcionSchema, registrarInscripcion, secretoValido, ultimasNotificaciones } from '@/lib/buyer-webhook';
+import { decidirPropuesta, decisionSchema, filtroPropuestasSchema, listarEjecuciones, listarPropuestas, requestRun, solicitudRunSchema } from '@/lib/buyer-agent';
+import { suscribirLive } from '@/lib/live';
+import { ConsultaExternaTimeout, esTiempoAgotado, MENSAJE_REQUIERE_SQLSERVER, sqlServerDisponible } from '@/lib/external';
 
 export const runtime = 'nodejs';
 const fail = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
@@ -35,27 +40,24 @@ export async function GET(req: NextRequest, context: { params: Promise<{ path: s
     const db = tables();
     if (path === 'me') return ok({ user, demo: process.env.DEMO_MODE === 'true' });
     if (path === 'live') {
-      const version = async () => (await Promise.all(['amp_events', 'amp_insights', 'amp_approvals', 'amp_messages'].map(name => db[name].max('id')))).map(value => Number(value) || 0).join(':');
-      let lastId = await version();
       const encoder = new TextEncoder();
-      let timer: ReturnType<typeof setInterval> | undefined;
-      let closed = false, busy = false;
+      let unsubscribe: (() => void) | undefined;
+      let closed = false;
       const stream = new ReadableStream<Uint8Array>({
-        start(controller) {
+        async start(controller) {
           controller.enqueue(encoder.encode(': connected\n\n'));
-          timer = setInterval(async () => {
-            if (closed || busy) return;
-            busy = true;
-            try {
-              const newest = await version();
-              if (newest !== lastId) { lastId = newest; controller.enqueue(encoder.encode(`data: ${JSON.stringify({ id: newest })}\n\n`)); }
-              else controller.enqueue(encoder.encode(': heartbeat\n\n'));
-            } catch { /* La reconexión del navegador mantiene el canal activo. */ }
-            finally { busy = false; }
-          }, 2500);
-          req.signal.addEventListener('abort', () => { closed = true; if (timer) clearInterval(timer); try { controller.close(); } catch { /* ya cerrado */ } }, { once: true });
+          let lastSent: string | null = null;
+          const close = () => { closed = true; unsubscribe?.(); try { controller.close(); } catch { /* ya cerrado */ } };
+          unsubscribe = await suscribirLive((version, changed) => {
+            if (closed) return;
+            if (lastSent === null) lastSent = version; // el estado al conectar no es un cambio
+            if (changed && version !== lastSent) { lastSent = version; controller.enqueue(encoder.encode(`data: ${JSON.stringify({ id: version })}\n\n`)); }
+            else controller.enqueue(encoder.encode(': heartbeat\n\n'));
+          });
+          if (closed) unsubscribe();
+          req.signal.addEventListener('abort', close, { once: true });
         },
-        cancel() { closed = true; if (timer) clearInterval(timer); }
+        cancel() { closed = true; unsubscribe?.(); }
       });
       return new Response(stream, { headers: { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' } });
     }
@@ -81,8 +83,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ path: s
         db.amp_approvals.findAll({ where: { contactId: { [Op.in]: ids }, status: 'PENDING' } }),
         db.amp_exam_entries.findAll({ where: { matchedContactId: { [Op.in]: ids }, nonAdmittedRank: { [Op.lte]: 10 }, result: 'NOT_ADMITTED' } })
       ]) : [[], [], []];
-      const agentEvents = ids.length && ['BUYER', 'LEAD', 'PAYER'].includes(stage || '') ? plainMany<any>(await db.amp_events.findAll({
-        where: { contactId: { [Op.in]: ids }, type: { [Op.in]: ['BUYER_INTENT_SIGNAL', 'LEAD_NEGOTIATION_PROFILE', 'PAYER_ONBOARDING'] } },
+      const agentEvents = ids.length && ['LEAD', 'PAYER'].includes(stage || '') ? plainMany<any>(await db.amp_events.findAll({
+        where: { contactId: { [Op.in]: ids }, type: { [Op.in]: ['LEAD_NEGOTIATION_PROFILE', 'PAYER_ONBOARDING'] } },
         order: [['createdAt', 'DESC']], limit: Math.max(100, ids.length * 20)
       })) : [];
       const insightById = new Map<number, any>();
@@ -90,15 +92,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ path: s
       const approvalIds = new Set(plainMany<any>(approvals).map(item => item.contactId));
       const topIds = new Set(plainMany<any>(topEntries).map(item => item.matchedContactId));
       const summaries = new Map<number, { priority: string | null; summary: string }>();
-      const buyerSignals = new Map<number, string[]>();
       for (const row of agentEvents) {
         const details = eventDetails(row.detail);
         const contactId = Number(row.contactId);
-        if (row.type === 'BUYER_INTENT_SIGNAL') {
-          const signals = buyerSignals.get(contactId) || [];
-          if (signals.length < 2) signals.push(`${details.intentType || 'INTENCIÓN'}: “${String(details.evidence || '').slice(0, 120)}” → ${details.funnelRecommendation || details.recommendation || 'Revisar paso Buyer → Lead.'}`);
-          buyerSignals.set(contactId, signals);
-        } else if (!summaries.has(contactId)) {
+        if (!summaries.has(contactId)) {
           if (row.type === 'LEAD_NEGOTIATION_PROFILE') {
             const missing = Array.isArray(details.missingFields) && details.missingFields.length ? `Faltan: ${details.missingFields.join(', ')}.` : 'Perfil esencial completo.';
             summaries.set(contactId, { priority: details.priority || null, summary: `${details.priority || 'SIN PRIORIDAD'} — ${details.priorityReason || 'Sin evaluación.'} ${missing} Siguiente: ${details.nextAction || 'revisar conversación.'}` });
@@ -110,7 +107,6 @@ export async function GET(req: NextRequest, context: { params: Promise<{ path: s
       }
       const prioritized = rows.map(c => {
         const item = prioritize(c, insightById.get(c.id) || null, approvalIds.has(c.id), topIds.has(c.id));
-        if (c.stage === 'BUYER') return { ...item, agentPriority: null, agentSummary: buyerSignals.get(c.id)?.join(' · ') || 'Aún no se registran señales comerciales entrantes.' };
         if (c.stage === 'LEAD') {
           const profile = summaries.get(c.id);
           return { ...item, agentPriority: profile?.priority || null, agentSummary: profile?.summary || 'Perfil progresivo pendiente de una interacción entrante.' };
@@ -144,15 +140,48 @@ export async function GET(req: NextRequest, context: { params: Promise<{ path: s
     if (path === 'exams') return ok({ exams: plainMany(await db.amp_exams.findAll({ order: [['createdAt', 'DESC']], limit: 100 })), review: plainMany(await db.amp_exam_entries.findAll({ where: { matchedContactId: null, matchConfidence: { [Op.gt]: 0 } }, limit: 100 })) });
     if (path === 'settings') return ok({ ai: await aiConfig(), followup: await radarConfig(), hasKeys: { OPENAI: !!process.env.OPENAI_API_KEY, GEMINI: !!process.env.GEMINI_API_KEY, GROK: !!process.env.XAI_API_KEY, ANTHROPIC: !!process.env.ANTHROPIC_API_KEY }, demo: process.env.DEMO_MODE === 'true' });
     if (path === 'jobs') return ok({ jobs: plainMany(await db.amp_jobs.findAll({ order: [['createdAt', 'DESC']], limit: 100 })) });
+    if (path.startsWith('buyer/')) {
+      // Agente de conversión Buyer → Lead: lee el DataMart y el OLTP (solo SELECT). Requiere SQL Server.
+      if (!sqlServerDisponible()) return fail(MENSAJE_REQUIERE_SQLSERVER, 503);
+      const consulta = Object.fromEntries(req.nextUrl.searchParams.entries());
+      if (path === 'buyer/runs') return ok({ runs: await listarEjecuciones(50) });
+      if (path === 'buyer/proposals') return ok({ proposals: await listarPropuestas(filtroPropuestasSchema.parse(consulta)) });
+      if (path === 'buyer/kpis') return ok(await buyerKpis(kpisQuerySchema.parse(consulta)));
+      if (path === 'buyer/realtime') return ok({ now: new Date().toISOString(), ...(await actividadHoy()), notifications: await ultimasNotificaciones(20) });
+      if (path === 'buyer/abandonment') {
+        const data = abandonmentQuerySchema.parse(consulta);
+        const periodo = data.from && data.to ? { from: data.from, to: data.to } : await periodoPorDefecto();
+        if (!periodo) return fail('El DataMart aún no tiene datos', 404);
+        const curva = await curvaAbandono(data.video, data.from || periodo.from, data.to || periodo.to);
+        return curva ? ok(curva) : fail('Video no encontrado', 404);
+      }
+    }
     return fail('Ruta no encontrada', 404);
-  } catch (error) { console.error(error); return fail(String(error), 500); }
+  } catch (error) {
+    if (error instanceof z.ZodError) return fail(error.issues.map(issue => issue.message).join('; '));
+    if (error instanceof ConsultaExternaTimeout || esTiempoAgotado(error)) return fail(error instanceof ConsultaExternaTimeout ? error.message : 'La base de datos tardó demasiado en responder. Intenta de nuevo en unos minutos.', 504);
+    console.error(error);
+    return fail(String(error), 500);
+  }
 }
 
 export async function POST(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   try {
     const path = (await context.params).path.join('/');
-    if (path !== 'webhooks/evolution') requireSameOrigin(req);
+    if (path !== 'webhooks/evolution' && path !== 'webhooks/inscripciones') requireSameOrigin(req);
     const db = tables();
+    if (path === 'webhooks/inscripciones') {
+      // Sin sesión ni same-origin: lo llama el sistema del OLTP con un secreto compartido.
+      const configurado = process.env.BUYER_WEBHOOK_SECRET;
+      if (!configurado) return fail('Webhook no configurado: falta BUYER_WEBHOOK_SECRET', 503);
+      if (!secretoValido(req.headers.get('x-amp-webhook-secret'), configurado)) return fail('Webhook no autorizado', 401);
+      let cuerpo: unknown;
+      try { cuerpo = await req.json(); } catch { return fail('Cuerpo JSON inválido', 400); }
+      const datos = inscripcionSchema.safeParse(cuerpo);
+      if (!datos.success) return fail(datos.error.issues.map(issue => `${issue.path.join('.') || 'cuerpo'}: ${issue.message}`).join('; '), 400);
+      const { creada, notificacion } = await registrarInscripcion(datos.data);
+      return ok({ ok: true, created: creada, notification: notificacion }, creada ? 201 : 200);
+    }
     if (path === 'webhooks/evolution') {
       const configured = process.env.EVOLUTION_WEBHOOK_SECRET;
       const supplied = req.headers.get('x-amp-webhook-secret') || '';
@@ -182,6 +211,21 @@ export async function POST(req: NextRequest, context: { params: Promise<{ path: 
     const user = await currentUser();
     if (!user) return fail('Sesión requerida', 401);
     if (path === 'logout') { const response = ok({ ok: true }); response.cookies.delete('amp_session'); return response; }
+    if (path === 'buyer/run') {
+      if (!sqlServerDisponible()) return fail(MENSAJE_REQUIERE_SQLSERVER, 503);
+      const data = solicitudRunSchema.parse(await body(req));
+      const run = await requestRun({ ...data, trigger: 'MANUAL', requestedBy: String(user.id) });
+      return ok({ runId: run!.runId }, 202);
+    }
+    if (path === 'buyer/proposal/decide') {
+      if (!sqlServerDisponible()) return fail(MENSAJE_REQUIERE_SQLSERVER, 503);
+      const data = decisionSchema.parse(await body(req));
+      let result;
+      try { result = await decidirPropuesta(data, String(user.id)); } catch (error) { return fail(error instanceof Error ? error.message : String(error), 422); }
+      if (!result) return fail('Propuesta no encontrada', 404);
+      if (result === 'YA_DECIDIDA') return fail('Solo se pueden decidir propuestas en borrador (DRAFT)', 409);
+      return ok({ proposal: result });
+    }
     if (path === 'lifecycle/resolve') {
       const data = z.object({ contactId: z.number().int().positive(), reason: z.string().trim().min(10).max(1000) }).parse(await body(req));
       const context = await lifecycleContext(data.contactId);
@@ -195,7 +239,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ path: 
     }
     if (path === 'agent/run') {
       const data = z.object({ contactId: z.number().int().positive() }).parse(await body(req));
-      if (!(await contact(data.contactId))) return fail('Contacto no encontrado', 404);
+      const target = await contact(data.contactId);
+      if (!target) return fail('Contacto no encontrado', 404);
+      if (target.stage === 'BUYER') return fail('Los buyers no tienen agente conversacional: los gestiona el Agente de conversión Buyer → Lead', 409);
       const job = await enqueue('AGENT', data.contactId, { requestedBy: user.id });
       await event(data.contactId, 'AGENT_QUEUED', 'Ejecución de agente solicitada.', 'OPERATOR', String(user.id));
       return ok({ jobId: job.get('id'), status: 'PENDING' }, 202);
@@ -204,6 +250,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ path: 
       const data = z.object({ contactId: z.number().int().positive(), channel: z.enum(['WHATSAPP', 'EMAIL']), recipientKind: z.enum(['STUDENT', 'GUARDIAN']).optional(), text: z.string().trim().min(1).max(4000) }).parse(await body(req));
       const target = await contact(data.contactId);
       if (target?.stage === 'CUSTOMER' && (data.recipientKind || 'STUDENT') === 'GUARDIAN' && !planCapabilities(target.plan).guardianReports) return fail('Los reportes al apoderado solo corresponden a Meta UNT Plus');
+      if (target?.stage === 'BUYER') return fail('Los buyers no reciben mensajes: los gestiona el Agente de conversión Buyer → Lead', 409);
       const row = await sendMessage(data.contactId, data.channel, data.text, 'OPERATOR', String(user.id), false, false, data.recipientKind || 'STUDENT');
       const lifecycleContact = await contact(data.contactId);
       if (lifecycleContact && isLifecycle(lifecycleContact.stage)) await event(data.contactId, 'LIFECYCLE_ACTION', 'Acción de comunicación ejecutada por operador; no fue un envío autónomo del agente.', 'OPERATOR', String(user.id), { state: 'EJECUTADA', action: 'CONTACT', messageId: row.get('id'), recipientKind: data.recipientKind || 'STUDENT', channel: data.channel, executedAt: new Date().toISOString() });
@@ -294,6 +341,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ path: 
       const data = z.object({ id: z.number().int().positive() }).parse(await body(req));
       const campaign = plain<any>(await db.amp_campaigns.findByPk(data.id));
       if (!campaign || campaign.status !== 'APPROVED') return fail('Campaña no aprobada');
+      if (campaign.stage === 'BUYER') return fail('Las campañas de mensajes no aplican a buyers: los gestiona el Agente de conversión Buyer → Lead', 409);
       const recipients = plainMany<any>(await db.dm_contacts.findAll({ where: { stage: campaign.stage } }));
       for (const c of recipients) await enqueue('CAMPAIGN', c.id, { campaignId: campaign.id }, new Date(), `campaign:${campaign.id}:${c.id}`);
       return ok({ queued: recipients.length });
@@ -315,7 +363,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ path: 
     if (path === 'settings') {
       if (!canConfigure(user.role)) return fail('Solo administración puede elegir proveedor de IA', 403);
       const data = z.object({ provider: z.enum(['OPENAI', 'GEMINI', 'GROK', 'ANTHROPIC']), model: z.string().trim().min(1).max(100) }).parse(await body(req));
-      const value = JSON.stringify({ provider: data.provider, model: data.provider === 'OPENAI' ? 'gpt-5-nano' : data.model });
+      const value = JSON.stringify({ provider: data.provider, model: data.model });
       const existing = await db.amp_settings.findOne({ where: { key: 'ai' } });
       if (existing) await existing.update({ value, updatedAt: new Date() }); else await db.amp_settings.create({ key: 'ai', value, updatedAt: new Date() });
       await event(null, 'SETTINGS', `Proveedor de IA: ${data.provider}.`, 'OPERATOR', String(user.id));
@@ -324,6 +372,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ path: 
     return fail('Ruta no encontrada', 404);
   } catch (error) {
     if (error instanceof z.ZodError) return fail(error.issues.map(issue => issue.message).join('; '));
+    if (error instanceof ConsultaExternaTimeout || esTiempoAgotado(error)) return fail(error instanceof ConsultaExternaTimeout ? error.message : 'La base de datos tardó demasiado en responder. Intenta de nuevo en unos minutos.', 504);
     console.error(error);
     return fail(String(error), 500);
   }

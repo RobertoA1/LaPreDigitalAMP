@@ -4,7 +4,7 @@ import { agents, type Channel } from './types';
 import { generate } from './ai';
 import { sendToBoth, sendToPermittedRecipients } from './messaging';
 import {
-  assessPayerOnboarding, buildLeadFallback, buildLeadProfile, buyerDraftRepeatsOffer, buyerOffersAlreadyPresented, eventDetails,
+  assessPayerOnboarding, buildLeadFallback, buildLeadProfile, eventDetails,
   isInformationalPriceQuery, leadApprovalKind, parseStructuredProposal, payerDraftClaimsUnconfirmedFacts, promptForStage, proposalFallback,
   type LeadProfile, type StageProposal
 } from './stage-agents';
@@ -21,7 +21,6 @@ export function channelFor(stage: string, interest: string | null): Channel | nu
 }
 function template(stage: string, name: string, career: string | null, plan: string | null, renewalAt: string | null, academicSummary: string) {
   const first = name.split(' ')[0];
-  if (stage === 'BUYER') return `Hola, ${first}. En LaPreDigital puedes preparar ${career || 'tu examen de admisión'} desde donde estés. ¿Te gustaría conocer la prueba Explora UNT de 14 días?`;
   if (stage === 'LEAD') return `Hola, ${first}. Según tu interés en ${career || 'tu carrera objetivo'}, podemos ayudarte con una ruta de estudio digital. ¿Qué duda te gustaría resolver sobre ${plan || 'nuestros planes'}?`;
   if (stage === 'PAYER') return `Hola, ${first}. Queremos ayudarte a continuar tu preparación. Tu periodo vence ${renewalAt ? new Date(renewalAt).toLocaleDateString('es-PE') : 'próximamente'}. ¿Necesitas ayuda con la renovación?`;
   if (stage === 'CUSTOMER') return `Hola, ${first}. ¿Cómo va tu preparación esta semana? Podemos ayudarte a revisar tu avance, cursos pendientes y próximos simulacros.`;
@@ -29,18 +28,6 @@ function template(stage: string, name: string, career: string | null, plan: stri
 }
 
 type AgentMessage = { id: number; direction: string; body: string; channel: Channel; createdAt: Date | string; recipientKind?: string };
-
-function buyerFallback(c: NonNullable<Awaited<ReturnType<typeof contact>>>, messages: AgentMessage[]) {
-  const first = c.fullName.split(' ')[0];
-  const goal = [c.career, c.university].filter(Boolean).join(' en ');
-  const offeredTrial = messages.some(message => message.direction === 'OUT' && /\b(explora|prueba gratuita|prueba de 14|14 d[ií]as)\b/i.test(message.body));
-  const base = `Hola, ${first}. ${goal ? `Puedes prepararte para ${goal} con LaPreDigital.` : 'LaPreDigital te acompaña en tu preparación universitaria digital.'}`;
-  return offeredTrial ? `${base} ¿Qué información te ayudaría a decidir si continuar?` : `${base} ¿Te gustaría conocer la prueba Explora UNT de 14 días?`;
-}
-
-function buyerFacts(c: NonNullable<Awaited<ReturnType<typeof contact>>>) {
-  return [c.career ? `career=${c.career}` : null, c.university ? `university=${c.university}` : null].filter((value): value is string => !!value);
-}
 
 function leadQuestionConflictsWithKnownData(draft: string, profile: LeadProfile) {
   const value = draft.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -57,7 +44,7 @@ async function saveAssessment(contactId: number, stage: string, detail: Record<s
   await event(contactId, 'STAGE_AGENT_ASSESSMENT', `Evaluación estructurada del agente ${agents[stage as keyof typeof agents]}.`, 'AGENT', agents[stage as keyof typeof agents], detail);
 }
 
-async function generateProposal(stage: 'BUYER' | 'LEAD' | 'PAYER', context: unknown) {
+async function generateProposal(stage: 'LEAD' | 'PAYER', context: unknown) {
   const result = await generate(promptForStage(stage), JSON.stringify({
     stage, context,
     requiredOutput: 'JSON object with draft:string, nextAction:string, priority:ALTA|MEDIA|BAJA, priorityReason:string, missingFields:string[], proposalType:NONE|DISCOUNT|SCHOLARSHIP|HALF_SCHOLARSHIP, needsApproval:boolean, factsUsed:string[]'
@@ -77,24 +64,7 @@ async function runImpulseAgent(c: NonNullable<Awaited<ReturnType<typeof contact>
   let leadProfile: LeadProfile | null = null;
   let payerAssessment: ReturnType<typeof assessPayerOnboarding> | null = null;
 
-  if (c.stage === 'BUYER') {
-    const allOutbound = plainMany<any>(await db.amp_messages.findAll({ where: { contactId: c.id, direction: 'OUT' }, order: [['createdAt', 'DESC']] })) as AgentMessage[];
-    const priorOffers = buyerOffersAlreadyPresented(allOutbound);
-    const signalRows = await db.amp_events.findAll({ where: { contactId: c.id, type: 'BUYER_INTENT_SIGNAL' }, order: [['createdAt', 'DESC']], limit: 20 });
-    const signals = signalRows.map(row => eventDetails(row.get('detail'))).filter(detail => detail.intentType);
-    const draft = buyerFallback(c, allOutbound);
-    const nextAction = signals.length
-      ? 'Revisar las señales de intención y valorar Buyer → Lead; el datamart confirma cualquier cambio de etapa.'
-      : 'Resolver la duda con información verificada y registrar señales de intención del buyer.';
-    fallback = proposalFallback(draft, nextAction, buyerFacts(c));
-    context = {
-      confirmedFacts: { firstName: c.fullName.split(' ')[0], career: c.career, university: c.university },
-      intentSignals: signals.slice(0, 8),
-      priorOffers,
-      recommendations: await recommend(c),
-      recentMessages: messages.map(message => ({ direction: message.direction, body: message.body, channel: message.channel }))
-    };
-  } else if (c.stage === 'LEAD') {
+  if (c.stage === 'LEAD') {
     const assessmentRows = await db.amp_events.findAll({ where: { contactId: c.id, type: 'LEAD_NEGOTIATION_PROFILE' }, order: [['createdAt', 'DESC']], limit: 10 });
     const prior = assessmentRows.map(row => eventDetails(row.get('detail'))).find(detail => detail.progressiveProfile)?.progressiveProfile || {};
     leadProfile = buildLeadProfile(c, extendedMessages.map(row => ({ id: Number(row.id), direction: String(row.direction), body: String(row.body) })), prior);
@@ -132,7 +102,7 @@ async function runImpulseAgent(c: NonNullable<Awaited<ReturnType<typeof contact>
 
   let proposal = fallback, provider = 'RULES', model = 'RULES';
   try {
-    const generated = await generateProposal(c.stage as 'BUYER' | 'LEAD' | 'PAYER', context);
+    const generated = await generateProposal(c.stage as 'LEAD' | 'PAYER', context);
     proposal = generated.proposal;
     provider = generated.provider;
     model = generated.model;
@@ -140,14 +110,6 @@ async function runImpulseAgent(c: NonNullable<Awaited<ReturnType<typeof contact>
     await event(c.id, 'AI_STRUCTURED_FALLBACK', 'No se pudo validar la salida estructurada; se utilizó una propuesta determinista.', 'SYSTEM', agents[c.stage], { error: String(error), stage: c.stage });
   }
 
-  if (c.stage === 'BUYER') {
-    const priorOffers = buyerOffersAlreadyPresented(extendedMessages);
-    if (buyerDraftRepeatsOffer(proposal.draft, priorOffers)) proposal.draft = fallback.draft;
-    proposal.priority = 'BAJA';
-    proposal.priorityReason = 'La priorización de Buyer se basa en señales entrantes persistidas, no en una probabilidad inferida.';
-    proposal.nextAction = String(fallback.nextAction);
-    proposal.factsUsed = buyerFacts(c);
-  }
   if (c.stage === 'LEAD' && leadProfile) {
     if ((proposal.draft.match(/\?/g) || []).length > 1 || leadQuestionConflictsWithKnownData(proposal.draft, leadProfile)) proposal.draft = fallback.draft;
     proposal.priority = leadProfile.priority;
@@ -203,17 +165,6 @@ async function runImpulseAgent(c: NonNullable<Awaited<ReturnType<typeof contact>
   }
 
   const channel = channelFor(c.stage, c.interestChannel);
-  if (c.stage === 'BUYER') {
-    const sent: string[] = [];
-    for (const candidate of ['WHATSAPP', 'EMAIL'] as Channel[]) {
-      if ((candidate === 'WHATSAPP' && c.consentWhatsapp && c.phone) || (candidate === 'EMAIL' && c.consentEmail && c.email)) {
-        await sendToBoth(c.id, candidate, proposal.draft, agents.BUYER, true, inbound);
-        sent.push(candidate);
-      }
-    }
-    if (!sent.length) await event(c.id, 'AGENT_NO_CONSENT', 'Buyer sin canal y consentimiento disponibles; no se envió el borrador.', 'SYSTEM', agents.BUYER);
-    return { sent, provider, model, text: proposal.draft, assessment: proposal };
-  }
   if (!channel) {
     await db.amp_approvals.create({ contactId: c.id, kind: 'CHANNEL_REVIEW', status: 'PENDING', payload: JSON.stringify({ message: proposal.draft, mce: c.interestChannel }), reason: 'El MCE no tiene conector habilitado.', requestedBy: agents[c.stage], createdAt: new Date() });
     return { approval: true, provider, model, text: proposal.draft, assessment: proposal };
@@ -232,10 +183,12 @@ export async function runAgent(contactId: number, inbound = false) {
   const c = await contact(contactId);
   if (!c) throw new Error('Contacto no encontrado');
   if (isLifecycle(c.stage)) return prepareLifecycle(contactId);
+  // El BUYER ya no es un contacto con conversación: lo gestiona el Agente de conversión Buyer → Lead (sin envíos).
+  if (c.stage === 'BUYER') return { skipped: 'Etapa BUYER sin conversación: la gestiona el Agente de conversión Buyer → Lead.' };
   const db = tables();
   const messages = plainMany<any>(await db.amp_messages.findAll({ where: { contactId }, order: [['createdAt', 'DESC']], limit: 8 }));
   if (messages[0]?.direction === 'IN') return { skipped: 'La respuesta entrante está en evaluación o requiere atención manual.' };
-  if (['BUYER', 'LEAD', 'PAYER'].includes(c.stage)) return runImpulseAgent(c, messages as AgentMessage[], inbound);
+  if (['LEAD', 'PAYER'].includes(c.stage)) return runImpulseAgent(c, messages as AgentMessage[], inbound);
   const recs = await recommend(c);
   const weekly: any[] = [];
   const current = weekly[0], previous = weekly[1];
@@ -246,7 +199,7 @@ export async function runAgent(contactId: number, inbound = false) {
   try { const result = await generate(system, prompt); if (result.text) { text = result.text; provider = result.provider; model = result.model; } }
   catch (error) { await event(contactId, 'AI_FALLBACK', 'Modelo no disponible; se usó plantilla revisable.', 'SYSTEM', 'agent', { error: String(error) }); }
   const lastInbound = messages.find(m => m.direction === 'IN');
-  if (lastInbound && (c.stage === 'BUYER' || c.stage === 'LEAD')) await learnExplicitData(c.id, c, lastInbound.body);
+  if (lastInbound && c.stage === 'LEAD') await learnExplicitData(c.id, c, lastInbound.body);
   const offerInOutput = /\b(?:descuento|beca|semibeca|cup[oó]n|\d{1,2}\s?%\s?(?:de\s?)?descuento)\b/i.test(text);
   const discountRequest = lastInbound && /descuento|beca|semibeca|precio|caro|promoci[oó]n/i.test(lastInbound.body);
   if ((discountRequest || offerInOutput) && c.stage === 'LEAD') {
@@ -260,16 +213,6 @@ export async function runAgent(contactId: number, inbound = false) {
     return { approval: true, provider, model, text };
   }
   const channel = channelFor(c.stage, c.interestChannel);
-  if (c.stage === 'BUYER') {
-    const sent: string[] = [];
-    for (const candidate of ['WHATSAPP', 'EMAIL'] as Channel[]) {
-      if ((candidate === 'WHATSAPP' && c.consentWhatsapp && c.phone) || (candidate === 'EMAIL' && c.consentEmail && c.email)) {
-        await sendToBoth(contactId, candidate, text, agents[c.stage], true, inbound);
-        sent.push(candidate);
-      }
-    }
-    return { sent, provider, model, text };
-  }
   if (!channel) {
     await db.amp_approvals.create({ contactId, kind: 'CHANNEL_REVIEW', status: 'PENDING', payload: JSON.stringify({ message: text, mce: c.interestChannel }), reason: 'El MCE no tiene conector habilitado.', requestedBy: agents[c.stage], createdAt: new Date() });
     return { approval: true, provider, model, text };

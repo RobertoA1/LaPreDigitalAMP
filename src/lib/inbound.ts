@@ -8,7 +8,7 @@ import { agents, type Channel, type Contact } from './types';
 import { learnExplicitData } from './agents';
 import {
   alreadyRecordedForMessage, assessPayerOnboarding, buildLeadFallback, buildLeadProfile,
-  detectBuyerIntent, eventDetails, explicitBenefitApproval, inboundPromptForStage,
+  eventDetails, explicitBenefitApproval, inboundPromptForStage,
   payerOnboardingFallback
 } from './stage-agents';
 import { isLifecycle, serviceSignal, declaredExitReason } from './lifecycle-policy';
@@ -55,7 +55,12 @@ const existingClaim = plain<any>(await db.amp_inbound_triage.findOne({ where: { 
   try {
     const c = await contact(incoming.contactId);
     if (!c) throw new Error('Contacto entrante no disponible');
-    if (c.stage === 'BUYER' || c.stage === 'LEAD') await learnExplicitData(c.id, c, incoming.body);
+    if (c.stage === 'BUYER') {
+      // El BUYER es un visitante anónimo, no un contacto: ya no hay triaje, Radar ni respuestas para esta etapa.
+      await claim.update({ decision: 'IGNORED', reason: 'Etapa BUYER sin conversación: la gestiona el Agente de conversión Buyer → Lead.' });
+      return { skipped: true };
+    }
+    if (c.stage === 'LEAD') await learnExplicitData(c.id, c, incoming.body);
     const lifecycleSignal = isLifecycle(c.stage) ? serviceSignal(incoming.body) : null;
     if (lifecycleSignal) {
       const exists = await db.amp_events.findOne({ where: { contactId: c.id, type: 'SERVICE_REVIEW_REQUIRED', actorId: `message:${messageId}` } });
@@ -68,19 +73,6 @@ const existingClaim = plain<any>(await db.amp_inbound_triage.findOne({ where: { 
     const exitReason = c.stage === 'TURNED' ? declaredExitReason(incoming.body) : null;
     if (exitReason && !(await db.amp_events.findOne({ where: { contactId: c.id, type: 'TURNED_REASON', actorId: `message:${messageId}` } }))) {
       await event(c.id, 'TURNED_REASON', 'Motivo de baja declarado por el contacto; no inferido.', 'CONTACT', `message:${messageId}`, { messageId, declaration: exitReason });
-    }
-
-    if (c.stage === 'BUYER') {
-      const signals = detectBuyerIntent(incoming.body);
-      const existingSignals = plainMany<any>(await db.amp_events.findAll({ where: { contactId: c.id, type: 'BUYER_INTENT_SIGNAL' }, order: [['createdAt', 'DESC']], limit: 100 }));
-      for (const signal of signals) {
-        if (alreadyRecordedForMessage(existingSignals, messageId, signal.type)) continue;
-        await event(c.id, 'BUYER_INTENT_SIGNAL', `Señal de intención Buyer: ${signal.type}.`, 'AGENT', agents.BUYER, {
-          messageId, intentType: signal.type, evidence: signal.evidence, observedAt: new Date().toISOString(),
-          recommendation: signal.recommendation,
-          funnelRecommendation: 'Revisar paso Buyer → Lead; la etapa solo cambia cuando el datamart la confirme.'
-        });
-      }
     }
 
     let leadProfile: ReturnType<typeof buildLeadProfile> | null = null;
@@ -112,11 +104,7 @@ const existingClaim = plain<any>(await db.amp_inbound_triage.findOne({ where: { 
     let decision = decideInbound(incoming.body, c);
     const recentForRadar = [...history].reverse();
     let suggestedDraft = fallbackDraft(c, 'REPLY', recentForRadar);
-    if (c.stage === 'BUYER') {
-      const first = c.fullName.split(' ')[0];
-      const goal = [c.career, c.university].filter(Boolean).join(' en ');
-      suggestedDraft = `Hola, ${first}. ${goal ? `Puedo orientarte sobre tu preparación para ${goal}.` : 'Puedo orientarte sobre la preparación digital.'} ¿Qué información necesitas para continuar?`;
-    } else if (c.stage === 'LEAD' && leadProfile) {
+    if (c.stage === 'LEAD' && leadProfile) {
       suggestedDraft = buildLeadFallback(c, leadProfile, incoming.body);
     } else if (c.stage === 'PAYER') {
       const onboarding = assessPayerOnboarding(c, history, new Date());
@@ -131,7 +119,7 @@ const existingClaim = plain<any>(await db.amp_inbound_triage.findOne({ where: { 
     }
     const historyDesc = plainMany<any>(await db.amp_messages.findAll({ where: { contactId: c.id }, order: [['createdAt', 'DESC'], ['id', 'DESC']], limit: 8 }));
     try {
-      const inboundSystem = ['BUYER', 'LEAD', 'PAYER'].includes(c.stage) ? inboundPromptForStage(c.stage)
+      const inboundSystem = ['LEAD', 'PAYER'].includes(c.stage) ? inboundPromptForStage(c.stage)
         : 'Eres el evaluador de respuesta entrante de LaPreDigital. Devuelve solo JSON válido con decision AUTO o MANUAL, reason y draft. Prioriza MANUAL ante cualquier duda, dato cambiante, pago, oferta, beca, queja, cancelación, datos personales o resultado de admisión. No inventes hechos ni promociones. Un AUTO solo sirve para saludo o un dato institucional confirmado.';
       const result = await generate(inboundSystem, JSON.stringify({
         task: 'classify_inbound_and_prepare_review_draft', stage: c.stage,

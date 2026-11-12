@@ -1,0 +1,1 @@
+{"name":"memoria-tools","private":true,"type":"module","dependencies":{"@napi-rs/canvas":"^1.1.1","docx":"^9.15.3","pdfjs-dist":"^3.11.174"}}

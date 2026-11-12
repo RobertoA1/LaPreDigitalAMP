@@ -1,0 +1,499 @@
+{
+  "generado": "2026-11-12T21:30:11.202Z",
+  "figuras": 35,
+  "fragmentos": 171,
+  "lineas": 4525,
+  "indice": {
+    "estructura": [
+      "ESTRUCTURA DEL PROYECTO"
+    ],
+    "modulos": [
+      {
+        "h1": "A) PANTALLA DE LOGIN Y SEGURIDAD",
+        "h2": [
+          "Pantalla de inicio de sesión",
+          "Validación de credenciales",
+          "Menú lateral de navegación",
+          "Encabezado, estado en vivo y rol del usuario",
+          "Cierre de sesión"
+        ]
+      },
+      {
+        "h1": "B) DASHBOARD",
+        "h2": [
+          "Indicadores y embudo de conversión",
+          "Actividad reciente"
+        ]
+      },
+      {
+        "h1": "C) RADAR DE CONVERSACIONES",
+        "h2": [
+          "Radar de conversaciones"
+        ]
+      },
+      {
+        "h1": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+        "h2": [
+          "Filtros globales y KPI del periodo",
+          "Tendencia mensual y curva de abandono",
+          "Desgloses por canal, campaña y video",
+          "Hoy en tiempo real y notificaciones",
+          "Agente: generar propuestas B-1 y B-2",
+          "Ejecuciones recientes y análisis",
+          "Bandeja de propuestas",
+          "Editar y aprobar una propuesta",
+          "Descartar una propuesta"
+        ]
+      },
+      {
+        "h1": "E) LEADS · AGENTE NEGOCIADOR",
+        "h2": [
+          "Listado de leads"
+        ]
+      },
+      {
+        "h1": "F) PAYERS · AGENTE DE COBRANZA",
+        "h2": [
+          "Listado de payers"
+        ]
+      },
+      {
+        "h1": "G) CUSTOMERS · AGENTE DE FIDELIZACIÓN Y ACOMPAÑAMIENTO",
+        "h2": [
+          "Listado de customers"
+        ]
+      },
+      {
+        "h1": "H) TURNED · AGENTE DE REACTIVACIÓN Y POSTVENTA",
+        "h2": [
+          "Listado de turned"
+        ]
+      },
+      {
+        "h1": "I) PERFIL DEL CONTACTO",
+        "h2": [
+          "Datos del contacto y ejecución del agente",
+          "Conversación y envío de mensajes",
+          "Corrección auditada y revisión humana",
+          "Panel de ciclo de vida de Customer",
+          "Reportes semanales (Customer)",
+          "Panel de ciclo de vida de Turned",
+          "Historial de acciones"
+        ]
+      },
+      {
+        "h1": "J) APROBACIONES",
+        "h2": [
+          "Decisiones pendientes"
+        ]
+      },
+      {
+        "h1": "K) CAMPAÑAS",
+        "h2": [
+          "Campañas con control"
+        ]
+      },
+      {
+        "h1": "L) EXÁMENES DE ADMISIÓN",
+        "h2": [
+          "Importar y verificar resultados"
+        ]
+      },
+      {
+        "h1": "M) TRABAJOS DEL SERVIDOR",
+        "h2": [
+          "Cola de trabajos"
+        ]
+      },
+      {
+        "h1": "N) CONFIGURACIÓN",
+        "h2": [
+          "Vista general de Configuración",
+          "Proveedor y modelo de IA",
+          "Estado de conexiones y plazo de seguimiento"
+        ]
+      }
+    ]
+  },
+  "porModulo": {
+    "A": [
+      {
+        "captura": "01-login.png",
+        "fragmentos": [
+          "src/app/login/ui.tsx — Login (fragmento) [23 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/login [11 líneas]",
+          "src/lib/auth.ts — sign, sessionToken, sessionCookie [20 líneas]"
+        ]
+      },
+      {
+        "captura": "02-login-error.png",
+        "fragmentos": [
+          "src/app/api/[...path]/route.ts — fail, ok, requireSameOrigin, body [13 líneas]",
+          "src/lib/auth.ts — currentUser [22 líneas]"
+        ]
+      },
+      {
+        "captura": "03a-menu-lateral.png",
+        "fragmentos": [
+          "src/app/client.tsx — Sidebar (fragmento) [40 líneas]",
+          "src/app/client.tsx — App (fragmento) [31 líneas]",
+          "src/app/[[...slug]]/page.tsx — Page [6 líneas]"
+        ]
+      },
+      {
+        "captura": "03b-encabezado.png",
+        "fragmentos": [
+          "src/app/client.tsx — Header [43 líneas]",
+          "src/app/client.tsx — App (fragmento) [12 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/live [42 líneas]",
+          "src/lib/live.ts — versionLive, suscribirLive [30 líneas]"
+        ]
+      },
+      {
+        "captura": "17-sesion-cerrada.png",
+        "fragmentos": [
+          "src/app/client.tsx — Sidebar (fragmento) [10 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/logout [5 líneas]"
+        ]
+      }
+    ],
+    "B": [
+      {
+        "captura": "04-dashboard.png",
+        "fragmentos": [
+          "src/app/client.tsx — Dashboard (fragmento) [15 líneas]",
+          "src/app/client.tsx — Dashboard (fragmento) [44 líneas]",
+          "src/app/buyer-panel.tsx — BuyerDashboardCard [26 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/dashboard [24 líneas]"
+        ]
+      },
+      {
+        "captura": "04b-dashboard-actividad.png",
+        "fragmentos": [
+          "src/app/client.tsx — Dashboard (fragmento) [35 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/dashboard (fragmento) [12 líneas]",
+          "src/lib/contacts.ts — event [18 líneas]"
+        ]
+      }
+    ],
+    "C": [
+      {
+        "captura": "05-radar.png",
+        "fragmentos": [
+          "src/app/client.tsx — RadarPage (fragmento) [10 líneas]",
+          "src/app/client.tsx — InsightCard (fragmento) [24 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/radar [18 líneas]",
+          "src/lib/radar.ts — assessConversation [47 líneas]",
+          "src/lib/radar.ts — scanRadar (abreviado) [54 líneas]",
+          "src/lib/radar.ts — runRadar (fragmento) [65 líneas]",
+          "src/lib/radar.ts — sendInsight (abreviado) [63 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/radar/send [5 líneas]"
+        ]
+      }
+    ],
+    "D": [
+      {
+        "captura": "06a-buyers-filtros-kpi.png",
+        "fragmentos": [
+          "src/lib/buyer-kpis.ts — KPI_DEFS [44 líneas]",
+          "src/lib/buyer-kpis.ts — Umbral, semaforo [20 líneas]",
+          "src/lib/buyer-kpis.ts — sumasVisitas [27 líneas]",
+          "src/lib/buyer-kpis.ts — costosPeriodo [39 líneas]",
+          "src/lib/buyer-kpis.ts — partes, construirKpi [35 líneas]",
+          "src/lib/buyer-kpis.ts — kpisQuerySchema [27 líneas]",
+          "src/lib/external.ts — PALABRAS_PROHIBIDAS, assertSoloLectura [21 líneas]",
+          "src/lib/external.ts — queryExternal [18 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/buyer/* [19 líneas]",
+          "src/app/buyer-panel.tsx — BuyerPanel (abreviado) [37 líneas]",
+          "src/app/buyer-panel.tsx — estadoDe, thresholdText [15 líneas]",
+          "src/app/buyer-panel.tsx — KpiCards (fragmento) [31 líneas]"
+        ]
+      },
+      {
+        "captura": "06a-buyers-filtros-kpi-periodo-completo.png",
+        "fragmentos": [
+          "src/app/buyer-panel.tsx — BuyerPanel (fragmento) [13 líneas]",
+          "src/lib/buyer-kpis.ts — periodoPorDefecto, periodoPorDefectoSinCache [13 líneas]",
+          "src/lib/buyer-kpis.ts — buyerKpis [14 líneas]"
+        ]
+      },
+      {
+        "captura": "06b-buyers-tendencia-abandono.png",
+        "fragmentos": [
+          "src/lib/buyer-kpis.ts — buyerKpisSinCache (fragmento) [9 líneas]",
+          "src/lib/buyer-kpis.ts — inicioMes [7 líneas]",
+          "src/app/buyer-panel.tsx — TrendSection (fragmento) [10 líneas]",
+          "src/lib/buyer-kpis.ts — curvaAbandonoSinCache [40 líneas]",
+          "src/lib/buyer-kpis.ts — construirCurva [30 líneas]",
+          "src/app/buyer-panel.tsx — AbandonmentSection (fragmento) [18 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/buyer/abandonment [8 líneas]"
+        ]
+      },
+      {
+        "captura": "06c-buyers-desgloses.png",
+        "fragmentos": [
+          "src/lib/buyer-kpis.ts — condiciones [18 líneas]",
+          "src/lib/buyer-kpis.ts — agregar [35 líneas]",
+          "src/lib/buyer-kpis.ts — buyerKpisSinCache (fragmento) [41 líneas]",
+          "src/app/buyer-panel.tsx — KpiCell [19 líneas]",
+          "src/app/buyer-panel.tsx — BreakdownTables (fragmento) [37 líneas]"
+        ]
+      },
+      {
+        "captura": "06d-buyers-tiempo-real.png",
+        "fragmentos": [
+          "src/lib/buyer-kpis.ts — diaLima, actividadHoySinCache [60 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/buyer/realtime [6 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/webhooks/inscripciones [23 líneas]",
+          "src/lib/buyer-webhook.ts — inscripcionSchema, secretoValido [18 líneas]",
+          "src/lib/buyer-webhook.ts — registrarInscripcion [46 líneas]",
+          "src/app/buyer-panel.tsx — RealtimeSection (fragmento) [51 líneas]"
+        ]
+      },
+      {
+        "captura": "06e-buyers-agente.png",
+        "fragmentos": [
+          "src/app/buyer-panel.tsx — AgentSection (fragmento) [23 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/buyer/run [6 líneas]",
+          "src/lib/buyer-agent.ts — solicitudRunSchema [20 líneas]",
+          "src/lib/buyer-agent.ts — requestRun [31 líneas]",
+          "src/lib/jobs.ts — enqueue [23 líneas]",
+          "src/lib/jobs.ts — processNextJob (fragmento) [29 líneas]",
+          "src/lib/jobs.ts — processNextJob (fragmento) [5 líneas]",
+          "src/lib/buyer-agent.ts — buildContext, periodoAnteriorDe [19 líneas]",
+          "src/lib/buyer-agent.ts — contextoB1 (fragmento) [24 líneas]",
+          "src/lib/buyer-agent.ts — REGLAS_COMUNES, SYSTEM_B1, systemPrompt, construirPrompt [40 líneas]",
+          "src/lib/ai.ts — generate (abreviado) [51 líneas]"
+        ]
+      },
+      {
+        "captura": "06f-buyers-ejecucion-analisis.png",
+        "fragmentos": [
+          "src/lib/buyer-agent.ts — executeRun (abreviado) [80 líneas]",
+          "src/lib/buyer-agent.ts — procesarSalidaIa [31 líneas]",
+          "src/lib/buyer-agent.ts — propuestaIaSchema, salidaIaSchema [36 líneas]",
+          "src/lib/buyer-agent.ts — extraerJson [16 líneas]",
+          "src/lib/buyer-agent.ts — scanBuyerSchedules (abreviado) [29 líneas]",
+          "src/lib/buyer-agent.ts — ejecucionAPlano, listarEjecuciones [7 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/buyer/runs [1 líneas]",
+          "src/app/buyer-panel.tsx — AgentSection (fragmento) [41 líneas]",
+          "src/lib/jobs.ts — processNextJob (fragmento) [11 líneas]"
+        ]
+      },
+      {
+        "captura": "06g-buyers-propuestas.png",
+        "fragmentos": [
+          "src/lib/buyer-agent.ts — REGLAS, detectarProhibidos [31 líneas]",
+          "src/lib/buyer-agent.ts — validarPropuestas (fragmento) [44 líneas]",
+          "src/lib/buyer-agent.ts — completarCobertura, propuestasDePlantilla, analisisPlantilla [43 líneas]",
+          "src/lib/buyer-agent.ts — filtroPropuestasSchema, listarPropuestas [18 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/buyer/proposals [2 líneas]",
+          "src/app/buyer-panel.tsx — ProposalsSection (fragmento) [9 líneas]"
+        ]
+      },
+      {
+        "captura": "06h-buyers-editar-propuesta.png",
+        "fragmentos": [
+          "src/app/buyer-panel.tsx — Proposal (fragmento) [34 líneas]",
+          "src/app/buyer-panel.tsx — Proposal (fragmento) [15 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/buyer/proposal/decide [14 líneas]",
+          "src/lib/buyer-agent.ts — decisionSchema, decidirPropuesta [49 líneas]"
+        ]
+      },
+      {
+        "captura": "06i-buyers-descartar-propuesta.png",
+        "fragmentos": [
+          "src/app/buyer-panel.tsx — Proposal (fragmento) [15 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/buyer/proposal/decide [14 líneas]"
+        ]
+      }
+    ],
+    "E": [
+      {
+        "captura": "07-leads.png",
+        "fragmentos": [
+          "src/app/client.tsx — StagePage (fragmento) [8 líneas]",
+          "src/app/client.tsx — StagePage (fragmento) [12 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/contacts [59 líneas]",
+          "src/lib/priorities.ts — prioritize (fragmento) [38 líneas]",
+          "src/lib/stage-agents.ts — buildLeadProfile (abreviado) [74 líneas]",
+          "src/lib/stage-agents.ts — stageProposalSchema, promptForStage [16 líneas]"
+        ]
+      }
+    ],
+    "F": [
+      {
+        "captura": "08-payers.png",
+        "fragmentos": [
+          "src/app/client.tsx — StageTable (fragmento) [60 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/contacts (fragmento) [19 líneas]",
+          "src/lib/stage-agents.ts — assessPayerOnboarding (abreviado) [32 líneas]",
+          "src/lib/stage-agents.ts — shouldSendRenewalNotice [11 líneas]",
+          "src/lib/jobs.ts — scanSchedules (fragmento) [12 líneas]"
+        ]
+      }
+    ],
+    "G": [
+      {
+        "captura": "09-customers.png",
+        "fragmentos": [
+          "src/app/api/[...path]/route.ts — GET /api/contacts (fragmento) [10 líneas]",
+          "src/lib/lifecycle-policy.ts — CUSTOMER_INACTIVITY_DAYS, TURNED_CONTACT_WINDOW_DAYS, REACTIVATION_ATTRIBUTION_WINDOW_DAYS, activityAssessment [40 líneas]",
+          "src/lib/lifecycle.ts — lifecycleContext (fragmento) [49 líneas]",
+          "src/lib/lifecycle.ts — prepareLifecycle (fragmento) [18 líneas]"
+        ]
+      }
+    ],
+    "H": [
+      {
+        "captura": "10-turned.png",
+        "fragmentos": [
+          "src/lib/lifecycle-policy.ts — recoveryWindow [26 líneas]",
+          "src/lib/lifecycle-policy.ts — declaredExitReason, classifyTurnedReason [22 líneas]",
+          "src/lib/lifecycle-policy.ts — reactivationAttributionWindow, reactivated [43 líneas]",
+          "src/lib/lifecycle.ts — lifecycleContext (fragmento) [25 líneas]",
+          "src/lib/jobs.ts — syncStage (fragmento) [17 líneas]"
+        ]
+      }
+    ],
+    "I": [
+      {
+        "captura": "11a-perfil-datos.png",
+        "fragmentos": [
+          "src/app/client.tsx — ContactPage (fragmento) [27 líneas]",
+          "src/app/client.tsx — ContactPage (fragmento) [32 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/contact [30 líneas]",
+          "src/lib/contacts.ts — contact, recommend [59 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/agent/run [19 líneas]",
+          "src/lib/agents.ts — runAgent (fragmento) [21 líneas]"
+        ]
+      },
+      {
+        "captura": "11b-perfil-conversacion.png",
+        "fragmentos": [
+          "src/app/client.tsx — ContactPage (fragmento) [29 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/message/send [54 líneas]",
+          "src/lib/messaging.ts — messagePermission, withinSendHours [14 líneas]",
+          "src/lib/messaging.ts — sendMessage (fragmento) [47 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/message/inbound [20 líneas]"
+        ]
+      },
+      {
+        "captura": "11c-perfil-correccion-revision.png",
+        "fragmentos": [
+          "src/app/client.tsx — ContactPage (fragmento) [34 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/contact/override [39 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/priority/manual [31 líneas]"
+        ]
+      },
+      {
+        "captura": "11d-perfil-ciclo-customer.png",
+        "fragmentos": [
+          "src/app/lifecycle-panel.tsx — LifecyclePanel (fragmento) [36 líneas]",
+          "src/lib/lifecycle-policy.ts — lifecycleRisk (fragmento) [35 líneas]",
+          "src/lib/lifecycle-policy.ts — pendingServiceReview [20 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/lifecycle/resolve [44 líneas]"
+        ]
+      },
+      {
+        "captura": "11e-perfil-reportes-semanales.png",
+        "fragmentos": [
+          "src/app/client.tsx — ContactPage (fragmento) [28 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/contact (fragmento) [7 líneas]",
+          "src/lib/lifecycle-policy.ts — academicVariationPercent, academicAssessment [62 líneas]"
+        ]
+      },
+      {
+        "captura": "11f-perfil-ciclo-turned.png",
+        "fragmentos": [
+          "src/app/lifecycle-panel.tsx — LifecyclePanel (fragmento) [23 líneas]",
+          "src/lib/lifecycle-policy.ts — lifecycleAssessment (fragmento) [44 líneas]",
+          "src/lib/lifecycle-policy.ts — lifecycleAssessment (fragmento) [34 líneas]"
+        ]
+      },
+      {
+        "captura": "11g-perfil-historial.png",
+        "fragmentos": [
+          "src/app/client.tsx — ContactPage (fragmento) [27 líneas]",
+          "src/lib/contacts.ts — contactHistory [25 líneas]",
+          "src/lib/contacts.ts — event [18 líneas]"
+        ]
+      }
+    ],
+    "J": [
+      {
+        "captura": "12-aprobaciones.png",
+        "fragmentos": [
+          "src/app/client.tsx — ApprovalsPage (fragmento) [24 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/approvals [6 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/approval/decide [58 líneas]",
+          "src/lib/jobs.ts — processNextJob (fragmento) [11 líneas]"
+        ]
+      }
+    ],
+    "K": [
+      {
+        "captura": "13-campanas.png",
+        "fragmentos": [
+          "src/app/client.tsx — CampaignsPage (fragmento) [38 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/campaign/create [31 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/campaign/approve [20 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/campaign/run [24 líneas]",
+          "src/lib/jobs.ts — processNextJob (fragmento) [35 líneas]"
+        ]
+      }
+    ],
+    "L": [
+      {
+        "captura": "14-examenes.png",
+        "fragmentos": [
+          "src/app/client.tsx — ExamsPage (fragmento) [24 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/exam/upload [19 líneas]",
+          "src/lib/exams.ts — normalizeName, parseExamFile [42 líneas]",
+          "src/lib/exams.ts — importExam (fragmento) [53 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/exam/match [12 líneas]",
+          "src/lib/exams.ts — confirmExamMatch (fragmento) [18 líneas]"
+        ]
+      }
+    ],
+    "M": [
+      {
+        "captura": "15-trabajos.png",
+        "fragmentos": [
+          "src/app/client.tsx — JobsPage (fragmento) [25 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/jobs [4 líneas]",
+          "scripts/worker.ts — archivo completo [32 líneas]",
+          "src/lib/jobs.ts — nextSendWindow [7 líneas]",
+          "src/lib/jobs.ts — processNextJob (fragmento) [29 líneas]",
+          "src/lib/jobs.ts — processNextJob (fragmento) [14 líneas]"
+        ]
+      }
+    ],
+    "N": [
+      {
+        "captura": "16-configuracion.png",
+        "fragmentos": [
+          "src/app/client.tsx — SettingsPage (fragmento) [15 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/settings [12 líneas]",
+          "src/lib/auth.ts — canApprove, canConfigure [7 líneas]"
+        ]
+      },
+      {
+        "captura": "16a-configuracion-proveedor-ia.png",
+        "fragmentos": [
+          "src/app/client.tsx — SettingsPage (fragmento) [12 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/settings [22 líneas]",
+          "src/lib/ai.ts — DEFAULT_OPENAI_MODEL, aiConfig [14 líneas]"
+        ]
+      },
+      {
+        "captura": "16b-configuracion-conexiones-seguimiento.png",
+        "fragmentos": [
+          "src/app/client.tsx — SettingsPage (fragmento) [12 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/settings/followup [17 líneas]",
+          "src/lib/radar.ts — radarConfig [10 líneas]"
+        ]
+      }
+    ]
+  }
+}
