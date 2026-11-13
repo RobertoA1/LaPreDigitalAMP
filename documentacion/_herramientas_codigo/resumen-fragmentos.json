@@ -1,8 +1,8 @@
 {
-  "generado": "2026-11-12T21:30:11.202Z",
-  "figuras": 35,
-  "fragmentos": 171,
-  "lineas": 4525,
+  "generado": "2026-11-13T13:44:10.205Z",
+  "figuras": 46,
+  "fragmentos": 211,
+  "lineas": 7054,
   "indice": {
     "estructura": [
       "ESTRUCTURA DEL PROYECTO"
@@ -34,15 +34,18 @@
       {
         "h1": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
         "h2": [
-          "Filtros globales y KPI del periodo",
-          "Tendencia mensual y curva de abandono",
-          "Desgloses por canal, campaña y video",
-          "Hoy en tiempo real y notificaciones",
-          "Agente: generar propuestas B-1 y B-2",
-          "Ejecuciones recientes y análisis",
-          "Bandeja de propuestas",
-          "Editar y aprobar una propuesta",
-          "Descartar una propuesta"
+          "Barra del agente y pestañas",
+          "Resumen: filtros, avisos y KPI del periodo",
+          "Análisis y lectura del periodo",
+          "Agente: tiempo real y notificaciones",
+          "Agente: ejecución en vivo, lanzamiento e historial",
+          "Propuestas: bandeja, edición y descarte",
+          "Reglas: niveles de semáforo",
+          "Reglas: contenido y cobertura",
+          "Reglas: automatización, alertas y directrices",
+          "Reglas: restaurar, reglas bloqueadas y registro de cambios",
+          "Perfiles: listado de buyers capturados",
+          "Perfiles: detalle del buyer"
         ]
       },
       {
@@ -135,7 +138,7 @@
       {
         "captura": "03a-menu-lateral.png",
         "fragmentos": [
-          "src/app/client.tsx — Sidebar (fragmento) [40 líneas]",
+          "src/app/client.tsx — Sidebar (fragmento) [36 líneas]",
           "src/app/client.tsx — App (fragmento) [31 líneas]",
           "src/app/[[...slug]]/page.tsx — Page [6 líneas]"
         ]
@@ -146,7 +149,7 @@
           "src/app/client.tsx — Header [43 líneas]",
           "src/app/client.tsx — App (fragmento) [12 líneas]",
           "src/app/api/[...path]/route.ts — GET /api/live [42 líneas]",
-          "src/lib/live.ts — versionLive, suscribirLive [30 líneas]"
+          "src/lib/live.ts — versionLive, suscribirLive [37 líneas]"
         ]
       },
       {
@@ -163,7 +166,7 @@
         "fragmentos": [
           "src/app/client.tsx — Dashboard (fragmento) [15 líneas]",
           "src/app/client.tsx — Dashboard (fragmento) [44 líneas]",
-          "src/app/buyer-panel.tsx — BuyerDashboardCard [26 líneas]",
+          "src/app/buyers/dashboard-card.tsx — BuyerDashboardCard [26 líneas]",
           "src/app/api/[...path]/route.ts — GET /api/dashboard [24 líneas]"
         ]
       },
@@ -193,118 +196,200 @@
     ],
     "D": [
       {
-        "captura": "06a-buyers-filtros-kpi.png",
+        "captura": "06a-buyers-barra-agente.png",
         "fragmentos": [
-          "src/lib/buyer-kpis.ts — KPI_DEFS [44 líneas]",
-          "src/lib/buyer-kpis.ts — Umbral, semaforo [20 líneas]",
+          "src/app/buyers/agent-bar.tsx — AgentBar (fragmento) [35 líneas]",
+          "src/app/buyers/agent-meta.tsx — workerEstado, textoLatido, pasoActual [17 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/buyer/agent [2 líneas]",
+          "src/lib/buyer-auto.ts — LATIDO_VIVO_MS, LATIDO_INTERVALO_MS, escribirLatido, latidoVivo, leerLatido [22 líneas]",
+          "scripts/worker.ts — buyerLoop, heartbeatLoop [23 líneas]",
+          "src/lib/buyer-auto.ts — calcularEstado (fragmento) [71 líneas]",
+          "src/lib/buyer-auto.ts — cambiarModoSchema, cambiarModo [24 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/buyer/agent/mode [7 líneas]"
+        ]
+      },
+      {
+        "captura": "06b-buyers-resumen.png",
+        "fragmentos": [
+          "src/lib/buyer-rules.ts — KPI_DEFS [45 líneas]",
+          "src/lib/buyer-rules.ts — Umbral, semaforo [24 líneas]",
           "src/lib/buyer-kpis.ts — sumasVisitas [27 líneas]",
           "src/lib/buyer-kpis.ts — costosPeriodo [39 líneas]",
-          "src/lib/buyer-kpis.ts — partes, construirKpi [35 líneas]",
+          "src/lib/buyer-kpis.ts — partes, construirKpi [40 líneas]",
           "src/lib/buyer-kpis.ts — kpisQuerySchema [27 líneas]",
           "src/lib/external.ts — PALABRAS_PROHIBIDAS, assertSoloLectura [21 líneas]",
           "src/lib/external.ts — queryExternal [18 líneas]",
-          "src/app/api/[...path]/route.ts — GET /api/buyer/* [19 líneas]",
-          "src/app/buyer-panel.tsx — BuyerPanel (abreviado) [37 líneas]",
-          "src/app/buyer-panel.tsx — estadoDe, thresholdText [15 líneas]",
-          "src/app/buyer-panel.tsx — KpiCards (fragmento) [31 líneas]"
+          "src/app/api/[...path]/route.ts — GET /api/buyer/kpis [1 líneas]",
+          "src/lib/buyer-kpis.ts — buyerKpis [16 líneas]",
+          "src/app/buyers/tab-resumen.tsx — TabResumen, Kpis, variacion, KpiCard (fragmento) [71 líneas]",
+          "src/app/buyers/tab-resumen.tsx — AlertsSection (fragmento) [71 líneas]",
+          "src/app/buyers/filters.tsx — FilterBar (fragmento) [56 líneas]"
         ]
       },
       {
-        "captura": "06a-buyers-filtros-kpi-periodo-completo.png",
+        "captura": "06c-buyers-analisis-lectura.png",
         "fragmentos": [
-          "src/app/buyer-panel.tsx — BuyerPanel (fragmento) [13 líneas]",
-          "src/lib/buyer-kpis.ts — periodoPorDefecto, periodoPorDefectoSinCache [13 líneas]",
-          "src/lib/buyer-kpis.ts — buyerKpis [14 líneas]"
-        ]
-      },
-      {
-        "captura": "06b-buyers-tendencia-abandono.png",
-        "fragmentos": [
-          "src/lib/buyer-kpis.ts — buyerKpisSinCache (fragmento) [9 líneas]",
-          "src/lib/buyer-kpis.ts — inicioMes [7 líneas]",
-          "src/app/buyer-panel.tsx — TrendSection (fragmento) [10 líneas]",
+          "src/app/buyers/period-reading.ts — leerPeriodo (fragmento) [71 líneas]",
+          "src/lib/buyer-kpis.ts — buyerKpisSinCache (fragmento) [13 líneas]",
+          "src/lib/buyer-kpis.ts — condiciones, agregar [54 líneas]",
           "src/lib/buyer-kpis.ts — curvaAbandonoSinCache [40 líneas]",
           "src/lib/buyer-kpis.ts — construirCurva [30 líneas]",
-          "src/app/buyer-panel.tsx — AbandonmentSection (fragmento) [18 líneas]",
-          "src/app/api/[...path]/route.ts — GET /api/buyer/abandonment [8 líneas]"
+          "src/app/api/[...path]/route.ts — GET /api/buyer/abandonment [8 líneas]",
+          "src/app/buyers/tab-analisis.tsx — TabAnalisis, Trend (fragmento) [71 líneas]",
+          "src/app/buyers/tab-analisis.tsx — Abandonment (fragmento) [28 líneas]",
+          "src/app/buyers/tab-analisis.tsx — PorCampana (fragmento) [53 líneas]"
         ]
       },
       {
-        "captura": "06c-buyers-desgloses.png",
-        "fragmentos": [
-          "src/lib/buyer-kpis.ts — condiciones [18 líneas]",
-          "src/lib/buyer-kpis.ts — agregar [35 líneas]",
-          "src/lib/buyer-kpis.ts — buyerKpisSinCache (fragmento) [41 líneas]",
-          "src/app/buyer-panel.tsx — KpiCell [19 líneas]",
-          "src/app/buyer-panel.tsx — BreakdownTables (fragmento) [37 líneas]"
-        ]
+        "captura": "06d-buyers-analisis-desgloses.png",
+        "fragmentos": []
       },
       {
-        "captura": "06d-buyers-tiempo-real.png",
+        "captura": "06e-buyers-agente-tiempo-real.png",
         "fragmentos": [
           "src/lib/buyer-kpis.ts — diaLima, actividadHoySinCache [60 líneas]",
           "src/app/api/[...path]/route.ts — GET /api/buyer/realtime [6 líneas]",
           "src/app/api/[...path]/route.ts — POST /api/webhooks/inscripciones [23 líneas]",
           "src/lib/buyer-webhook.ts — inscripcionSchema, secretoValido [18 líneas]",
           "src/lib/buyer-webhook.ts — registrarInscripcion [46 líneas]",
-          "src/app/buyer-panel.tsx — RealtimeSection (fragmento) [51 líneas]"
+          "src/app/buyers/tab-agente.tsx — Realtime (fragmento) [71 líneas]"
         ]
       },
       {
-        "captura": "06e-buyers-agente.png",
+        "captura": "06f-buyers-agente-ejecucion-vivo.png",
         "fragmentos": [
-          "src/app/buyer-panel.tsx — AgentSection (fragmento) [23 líneas]",
+          "src/app/buyers/tab-agente.tsx — Lanzar (fragmento) [27 líneas]",
           "src/app/api/[...path]/route.ts — POST /api/buyer/run [6 líneas]",
           "src/lib/buyer-agent.ts — solicitudRunSchema [20 líneas]",
-          "src/lib/buyer-agent.ts — requestRun [31 líneas]",
-          "src/lib/jobs.ts — enqueue [23 líneas]",
+          "src/lib/buyer-agent.ts — requestRun [42 líneas]",
           "src/lib/jobs.ts — processNextJob (fragmento) [29 líneas]",
           "src/lib/jobs.ts — processNextJob (fragmento) [5 líneas]",
-          "src/lib/buyer-agent.ts — buildContext, periodoAnteriorDe [19 líneas]",
-          "src/lib/buyer-agent.ts — contextoB1 (fragmento) [24 líneas]",
-          "src/lib/buyer-agent.ts — REGLAS_COMUNES, SYSTEM_B1, systemPrompt, construirPrompt [40 líneas]",
-          "src/lib/ai.ts — generate (abreviado) [51 líneas]"
-        ]
-      },
-      {
-        "captura": "06f-buyers-ejecucion-analisis.png",
-        "fragmentos": [
-          "src/lib/buyer-agent.ts — executeRun (abreviado) [80 líneas]",
-          "src/lib/buyer-agent.ts — procesarSalidaIa [31 líneas]",
+          "src/lib/buyer-agent.ts — buildContext, periodoAnteriorDe [22 líneas]",
+          "src/lib/buyer-agent.ts — reglasComunes, sistemaB1 [60 líneas]",
+          "src/lib/buyer-agent.ts — construirPrompt [28 líneas]",
+          "src/lib/ai.ts — generate (abreviado) [51 líneas]",
           "src/lib/buyer-agent.ts — propuestaIaSchema, salidaIaSchema [36 líneas]",
-          "src/lib/buyer-agent.ts — extraerJson [16 líneas]",
-          "src/lib/buyer-agent.ts — scanBuyerSchedules (abreviado) [29 líneas]",
-          "src/lib/buyer-agent.ts — ejecucionAPlano, listarEjecuciones [7 líneas]",
+          "src/lib/buyer-agent.ts — procesarSalidaIa [42 líneas]",
+          "src/lib/buyer-agent.ts — PASOS, leerLog [7 líneas]",
+          "src/lib/buyer-agent.ts — executeRun (fragmento) [24 líneas]",
+          "src/lib/buyer-agent.ts — executeRun (fragmento) [76 líneas]",
+          "src/lib/buyer-agent.ts — contarPropuestasPorRun, listarEjecuciones [20 líneas]",
           "src/app/api/[...path]/route.ts — GET /api/buyer/runs [1 líneas]",
-          "src/app/buyer-panel.tsx — AgentSection (fragmento) [41 líneas]",
-          "src/lib/jobs.ts — processNextJob (fragmento) [11 líneas]"
+          "src/app/buyers/tab-agente.tsx — LiveRun [50 líneas]",
+          "src/app/buyers/tab-agente.tsx — Run [64 líneas]"
         ]
       },
       {
-        "captura": "06g-buyers-propuestas.png",
+        "captura": "06g-buyers-agente-historial.png",
+        "fragmentos": []
+      },
+      {
+        "captura": "06h-buyers-propuestas.png",
         "fragmentos": [
-          "src/lib/buyer-agent.ts — REGLAS, detectarProhibidos [31 líneas]",
-          "src/lib/buyer-agent.ts — validarPropuestas (fragmento) [44 líneas]",
-          "src/lib/buyer-agent.ts — completarCobertura, propuestasDePlantilla, analisisPlantilla [43 líneas]",
-          "src/lib/buyer-agent.ts — filtroPropuestasSchema, listarPropuestas [18 líneas]",
+          "src/lib/buyer-rules.ts — detectarProhibidosCon [18 líneas]",
+          "src/lib/buyer-agent.ts — validarPropuestas (fragmento) [45 líneas]",
+          "src/lib/buyer-agent.ts — completarCobertura, propuestasDePlantilla [36 líneas]",
+          "src/lib/buyer-agent.ts — filtroPropuestasSchema, listarPropuestas [67 líneas]",
           "src/app/api/[...path]/route.ts — GET /api/buyer/proposals [2 líneas]",
-          "src/app/buyer-panel.tsx — ProposalsSection (fragmento) [9 líneas]"
-        ]
-      },
-      {
-        "captura": "06h-buyers-editar-propuesta.png",
-        "fragmentos": [
-          "src/app/buyer-panel.tsx — Proposal (fragmento) [34 líneas]",
-          "src/app/buyer-panel.tsx — Proposal (fragmento) [15 líneas]",
+          "src/lib/buyer-agent.ts — decisionSchema, decidirPropuesta [63 líneas]",
           "src/app/api/[...path]/route.ts — POST /api/buyer/proposal/decide [14 líneas]",
-          "src/lib/buyer-agent.ts — decisionSchema, decidirPropuesta [49 líneas]"
+          "src/lib/buyer-agent.ts — decisionMultipleSchema, decidirVarias [41 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/buyer/proposals/decide-many [4 líneas]",
+          "src/app/buyers/tab-propuestas.tsx — TabPropuestas (fragmento) [71 líneas]",
+          "src/app/buyers/tab-propuestas.tsx — Card (fragmento) [71 líneas]"
         ]
       },
       {
-        "captura": "06i-buyers-descartar-propuesta.png",
+        "captura": "06i-buyers-editar-propuesta.png",
+        "fragmentos": []
+      },
+      {
+        "captura": "06j-buyers-descartar-propuesta.png",
+        "fragmentos": []
+      },
+      {
+        "captura": "06l-buyers-reglas-semaforos.png",
         "fragmentos": [
-          "src/app/buyer-panel.tsx — Proposal (fragmento) [15 líneas]",
-          "src/app/api/[...path]/route.ts — POST /api/buyer/proposal/decide [14 líneas]"
+          "src/lib/buyer-rules.ts — semaforoSchema [39 líneas]",
+          "src/lib/buyer-rules.ts — construirVigentes (fragmento) [71 líneas]",
+          "src/lib/buyer-rules.ts — reglasVigentes, estadoReglas [23 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/buyer/rules [2 líneas]",
+          "src/app/api/[...path]/route.ts — POST /api/buyer/rule/save | delete | restore [28 líneas]",
+          "src/lib/buyer-rules.ts — guardarRegla (fragmento) [63 líneas]",
+          "src/app/buyers/rule-forms.tsx — SemaforoForm, semaforoValido (fragmento) [71 líneas]",
+          "src/app/buyers/tab-reglas.tsx — TabReglas (fragmento) [71 líneas]"
+        ]
+      },
+      {
+        "captura": "06m-buyers-reglas-contenido-cobertura.png",
+        "fragmentos": [
+          "src/lib/buyer-rules.ts — terminoSchema, prohibidosSchema, pilarSchema, pilaresSchema [70 líneas]",
+          "src/lib/buyer-rules.ts — cobB1Schema, cobB2Schema, cobAtribucionSchema [35 líneas]",
+          "src/lib/buyer-rules.ts — regexLiteral, contieneLiteral, detectarProhibidosCon, pilaresEnCon [51 líneas]",
+          "src/lib/buyer-rules.ts — esquemaDeParametros, validarParams [56 líneas]",
+          "src/lib/buyer-agent.ts — faltantesCobertura [39 líneas]",
+          "src/app/buyers/rule-forms.tsx — TerminosForm, PilaresForm (fragmento) [71 líneas]",
+          "src/app/buyers/rule-forms.tsx — CoberturaB1, CoberturaB2 (fragmento) [71 líneas]"
+        ]
+      },
+      {
+        "captura": "06n-buyers-reglas-editor-prohibidos.png",
+        "fragmentos": []
+      },
+      {
+        "captura": "06o-buyers-reglas-automatizacion-alertas.png",
+        "fragmentos": [
+          "src/lib/buyer-rules.ts — semanalSchema, enfriamientoSchema, alertaSchema, directrizSchema [59 líneas]",
+          "src/lib/buyer-auto.ts — proximaEjecucionSemanal, semanalVence, proximaEjecucionAutomatica [57 líneas]",
+          "src/lib/buyer-auto.ts — evaluarAlerta, decidirEjecucionPorAlerta [36 líneas]",
+          "src/lib/buyer-auto.ts — revisarAlertas (fragmento) [71 líneas]",
+          "src/lib/buyer-auto.ts — scanBuyerSchedules [44 líneas]",
+          "src/lib/buyer-rules.ts — directricesPara [3 líneas]",
+          "src/app/buyers/rule-forms.tsx — Programacion, AlertaForm, DirectrizForm (fragmento) [71 líneas]",
+          "src/app/buyers/rule-summary.ts — fraseAlerta, resumenRegla [62 líneas]"
+        ]
+      },
+      {
+        "captura": "06p-buyers-reglas-nueva-alerta.png",
+        "fragmentos": []
+      },
+      {
+        "captura": "06k-buyers-reglas-cabecera.png",
+        "fragmentos": [
+          "src/lib/buyer-rules.ts — instantanea, auditar [41 líneas]",
+          "src/lib/buyer-rules.ts — restaurarFila, restaurarRegla [52 líneas]",
+          "src/lib/buyer-rules.ts — restaurarTodas [26 líneas]",
+          "src/lib/buyer-rules.ts — historialReglas [33 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/buyer/rules/history [4 líneas]",
+          "src/lib/buyer-rules.ts — sembrarReglas [27 líneas]",
+          "src/app/buyers/tab-reglas.tsx — RuleCard (fragmento) [71 líneas]"
+        ]
+      },
+      {
+        "captura": "06q-buyers-reglas-bloqueadas.png",
+        "fragmentos": []
+      },
+      {
+        "captura": "06r-buyers-reglas-aprobacion.png",
+        "fragmentos": []
+      },
+      {
+        "captura": "06s-buyers-perfiles-listado.png",
+        "fragmentos": [
+          "src/lib/buyer-profiles.ts — enmascararCorreo, enmascararTelefono [14 líneas]",
+          "src/lib/buyer-profiles.ts — filtroPerfilesSchema, construirFiltro (fragmento) [71 líneas]",
+          "src/lib/buyer-profiles.ts — conteosPorEstado, listarPerfiles [65 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/buyer/profiles [2 líneas]",
+          "src/app/buyers/tab-perfiles.tsx — TabPerfiles (fragmento) [71 líneas]"
+        ]
+      },
+      {
+        "captura": "06t-buyers-perfiles-detalle.png",
+        "fragmentos": [
+          "src/lib/buyer-profiles.ts — perfilDeFormulario (fragmento) [71 líneas]",
+          "src/lib/buyer-profiles.ts — calcularAvancePct, construirLineaDeTiempo [70 líneas]",
+          "src/app/api/[...path]/route.ts — GET /api/buyer/profile [15 líneas]",
+          "src/app/buyers/perfil-detalle.tsx — PerfilDetalle (fragmento) [71 líneas]"
         ]
       }
     ],
@@ -316,7 +401,7 @@
           "src/app/client.tsx — StagePage (fragmento) [12 líneas]",
           "src/app/api/[...path]/route.ts — GET /api/contacts [59 líneas]",
           "src/lib/priorities.ts — prioritize (fragmento) [38 líneas]",
-          "src/lib/stage-agents.ts — buildLeadProfile (abreviado) [74 líneas]",
+          "src/lib/stage-agents.ts — buildLeadProfile (fragmento) (abreviado) [71 líneas]",
           "src/lib/stage-agents.ts — stageProposalSchema, promptForStage [16 líneas]"
         ]
       }
@@ -462,7 +547,7 @@
         "fragmentos": [
           "src/app/client.tsx — JobsPage (fragmento) [25 líneas]",
           "src/app/api/[...path]/route.ts — GET /api/jobs [4 líneas]",
-          "scripts/worker.ts — archivo completo [32 líneas]",
+          "scripts/worker.ts — archivo completo [62 líneas]",
           "src/lib/jobs.ts — nextSendWindow [7 líneas]",
           "src/lib/jobs.ts — processNextJob (fragmento) [29 líneas]",
           "src/lib/jobs.ts — processNextJob (fragmento) [14 líneas]"

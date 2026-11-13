@@ -129,7 +129,13 @@ async function guardarSetting(key: string, valor: unknown) {
   const T = tables().amp_settings;
   const value = JSON.stringify(valor);
   const [cambiadas] = await T.update({ value, updatedAt: new Date() }, { where: { key } });
-  if (!cambiadas) { try { await T.create({ key, value, updatedAt: new Date() }); } catch { await T.update({ value, updatedAt: new Date() }, { where: { key } }); } }
+  if (cambiadas) return;
+  try { await T.create({ key, value, updatedAt: new Date() }); }
+  catch (error) {
+    // Carrera con otro proceso que acaba de crear la fila (clave única): se actualiza; cualquier otro fallo se propaga (nunca se traga).
+    const [reintento] = await T.update({ value, updatedAt: new Date() }, { where: { key } });
+    if (!reintento) throw new Error(`No se pudo guardar el ajuste «${key}»: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 async function leerAjuste(): Promise<Ajuste> {

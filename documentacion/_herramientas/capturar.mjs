@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const aqui = path.dirname(fileURLToPath(import.meta.url));
 const out = path.resolve(aqui, '..', 'capturas');
 const BASE = 'http://127.0.0.1:3000';
-const EMAIL = 'verificador@lapredigital.local';
+const EMAIL = process.env.AMP_EMAIL || 'verificador@lapredigital.local';
 const PASS = fs.readFileSync(process.env.AMP_PASS_FILE, 'utf8').split(/\r?\n/)[0].trim();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const W = 1366, H = 850;
@@ -79,32 +79,65 @@ await porTitulo('Actividad reciente', '04b-dashboard-actividad');
 // ---- Radar ----
 await ir('/radar'); await contenido('05-radar');
 
-// ---- Buyers ----
-await ir('/buyers', 4000);
-await rango('.bp-filters', '.bp-kpi-groups', '06a-buyers-filtros-kpi');
-await elem('.bp-grid-2', '06b-buyers-tendencia-abandono');
-await elem('.bp-tables', '06c-buyers-desgloses');
-await porTitulo('Hoy en tiempo real', '06d-buyers-tiempo-real');
-// Agente: parte superior (indicaciones, botones y encabezado de ejecuciones)
-await page.evaluate(() => { [...document.querySelectorAll('.bp-section')].find(s => s.querySelector('h3')?.textContent.includes('Agente de conversión'))?.setAttribute('id', 'sec-agente'); });
-await page.evaluate(() => { const s = document.getElementById('sec-agente'); s.querySelector('h4').setAttribute('id', 'agente-h4'); const lis = s.querySelectorAll('.bp-runs > li'); if (lis[0]) lis[0].setAttribute('id', 'run-1'); if (lis[1]) lis[1].setAttribute('id', 'run-2'); });
-const hayRuns = await page.$('#run-1');
-if (hayRuns) {
-  await rango('#sec-agente', '#run-1', '06e-buyers-agente');
-  // despliega el análisis de la primera ejecución
-  await page.evaluate(() => { const d = document.querySelector('#run-1 details'); if (d) d.open = true; }); await sleep(500);
-  await rango('#agente-h4', '#run-2' , '06f-buyers-ejecucion-analisis');
-}
-// Bandeja de propuestas
-await page.evaluate(() => { const s = [...document.querySelectorAll('.bp-section')].find(x => x.querySelector('h3')?.textContent.includes('Propuestas del agente')); s.setAttribute('id', 'sec-prop'); const a = s.querySelectorAll('.bp-proposal'); a.forEach((x, i) => x.setAttribute('id', 'prop-' + (i + 1))); });
-await rango('#sec-prop', '#prop-2', '06g-buyers-propuestas');
-// Editar y aprobar (sin guardar)
-await page.evaluate(() => { const b = [...document.querySelectorAll('#prop-1 button')].find(x => x.textContent.includes('Editar y aprobar')); b.click(); }); await sleep(600);
-await rango('#prop-1', '#prop-1', '06h-buyers-editar-propuesta');
-// Descartar con motivo (sin confirmar) sobre la 2.ª propuesta
-await page.evaluate(() => { const b = [...document.querySelectorAll('#prop-2 button')].find(x => x.textContent.includes('Descartar')); b.click(); }); await sleep(600);
+// ---- Buyers (diseño v2: barra del agente + pestañas) ----
+const marca = (texto, id) => page.evaluate((t, i) => { const h = [...document.querySelectorAll('.bp h3')].find(e => e.textContent.trim() === t); if (!h) throw new Error('Sin sección ' + t); h.closest('section').id = i; }, texto, id);
+const clic = (js) => page.evaluate(js);
+await ir('/buyers', 6000);
+await rango('.bp-agentbar', '.bp-tabs', '06a-buyers-barra-agente');
+await rango('.bp-filters', '.bp-kpis', '06b-buyers-resumen');
+
+await ir('/buyers/analisis', 6000);
+await marca('Lectura del periodo', 'sec-lectura');
+await rango('#sec-lectura', '.bp > .bp-grid-2', '06c-buyers-analisis-lectura');
+await marca('Por canal', 'sec-canal'); await marca('Por video', 'sec-video');
+await rango('#sec-canal', '#sec-video', '06d-buyers-analisis-desgloses');
+
+await ir('/buyers/agente', 6000);
+await marca('Actividades', 'sec-act'); await marca('Hoy en tiempo real', 'sec-hoy'); await marca('Ejecución en curso', 'sec-curso'); await marca('Lanzar una ejecución', 'sec-lanzar'); await marca('Ejecuciones recientes', 'sec-hist');
+await rango('#sec-act', '#sec-hoy', '06e-buyers-agente-tiempo-real');
+await rango('#sec-curso', '#sec-lanzar', '06f-buyers-agente-ejecucion-vivo');
+await clic(() => { const li = document.querySelector('#sec-hist .bp-runs > li'); li.id = 'run-1'; const d = li.querySelector('details'); if (d) d.open = true; });
+await sleep(600);
+await rango('#sec-hist', '#run-1', '06g-buyers-agente-historial');
+
+await ir('/buyers/propuestas', 6000);
+await clic(() => { const s = [...document.querySelectorAll('.bp h3')].find(e => e.textContent.trim() === 'Propuestas del agente').closest('section'); s.id = 'sec-prop'; s.querySelectorAll('.bp-proposal').forEach((x, i) => x.id = 'prop-' + (i + 1)); });
+await rango('#sec-prop', '#prop-2', '06h-buyers-propuestas');
+await clic(() => { [...document.querySelectorAll('#prop-1 button')].find(x => x.textContent.includes('Editar y aprobar')).click(); }); await sleep(700);
+await rango('#prop-1', '#prop-1', '06i-buyers-editar-propuesta');
+await clic(() => { [...document.querySelectorAll('#prop-2 button')].find(x => x.textContent.includes('Descartar')).click(); }); await sleep(700);
 await page.type('#prop-2 .bp-editor input', 'Motivo de ejemplo: el mensaje no encaja con la campaña vigente'); await sleep(300);
-await rango('#prop-2', '#prop-2', '06i-buyers-descartar-propuesta');
+await rango('#prop-2', '#prop-2', '06j-buyers-descartar-propuesta');
+
+await ir('/buyers/reglas', 6000);
+for (const [t, i] of [['Semáforos', 'sec-sem'], ['Medición', 'sec-med'], ['Contenido', 'sec-con'], ['Cobertura', 'sec-cob'], ['Automatización', 'sec-aut'], ['Aprobación', 'sec-apr'], ['Alertas', 'sec-alr'], ['Directrices', 'sec-dir']]) await marca(t, i);
+await elem('.bp-rules-head', '06k-buyers-reglas-cabecera');
+await clic(() => { [...document.querySelectorAll('#regla-SEM_B-1\\.2 button')].find(x => x.textContent.includes('Editar')).click(); }); await sleep(800);
+await rango('#sec-sem', '#sec-sem', '06l-buyers-reglas-semaforos');
+await ir('/buyers/reglas', 6000);
+for (const [t, i] of [['Contenido', 'sec-con'], ['Cobertura', 'sec-cob'], ['Automatización', 'sec-aut'], ['Aprobación', 'sec-apr'], ['Medición', 'sec-med'], ['Alertas', 'sec-alr'], ['Directrices', 'sec-dir']]) await marca(t, i);
+await rango('#sec-con', '#sec-cob', '06m-buyers-reglas-contenido-cobertura');
+await clic(() => { [...document.querySelectorAll('#regla-CON_PROHIBIDOS button')].find(x => x.textContent.includes('Editar')).click(); }); await sleep(800);
+await rango('#regla-CON_PROHIBIDOS', '#regla-CON_PROHIBIDOS', '06n-buyers-reglas-editor-prohibidos');
+await ir('/buyers/reglas', 6000);
+for (const [t, i] of [['Automatización', 'sec-aut'], ['Aprobación', 'sec-apr'], ['Medición', 'sec-med'], ['Alertas', 'sec-alr'], ['Directrices', 'sec-dir']]) await marca(t, i);
+await rango('#sec-aut', '#sec-dir', '06o-buyers-reglas-automatizacion-alertas');
+await clic(() => { [...document.querySelectorAll('#sec-alr button')].find(x => x.textContent.includes('Nueva alerta')).click(); }); await sleep(800);
+await rango('#sec-alr', '#sec-alr', '06p-buyers-reglas-nueva-alerta');
+await ir('/buyers/reglas', 6000);
+for (const [t, i] of [['Medición', 'sec-med'], ['Aprobación', 'sec-apr']]) await marca(t, i);
+await elem('#sec-med', '06q-buyers-reglas-bloqueadas');
+await elem('#sec-apr', '06r-buyers-reglas-aprobacion');
+
+await ir('/buyers/perfiles', 8000);
+await clic(() => { const s = [...document.querySelectorAll('.bp h3')].find(e => e.textContent.trim() === 'Perfiles').closest('section'); s.id = 'sec-perf'; const r = s.querySelector('tbody tr:nth-child(8)'); r.id = 'fila-8'; });
+await rango('#sec-perf', '#fila-8', '06s-buyers-perfiles-listado');
+await page.setViewport({ width: W, height: 1250, deviceScaleFactor: 1 });
+await clic(() => { document.querySelector('#sec-perf tbody tr .bp-namebtn').click(); });
+await page.waitForSelector('dialog.bp-drawer[open]', { timeout: 30000 }); await sleep(500); await listo(4000);
+await page.screenshot({ path: file('06t-buyers-perfiles-detalle') }); console.log('ok 06t-buyers-perfiles-detalle');
+await page.keyboard.press('Escape'); await sleep(500);
+await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 });
 
 // ---- Etapas ----
 for (const [r, n] of [['/leads', '07-leads'], ['/payers', '08-payers'], ['/customers', '09-customers'], ['/turned', '10-turned']]) { await ir(r, 2500); await contenido(n); }
@@ -113,7 +146,8 @@ for (const [r, n] of [['/leads', '07-leads'], ['/payers', '08-payers'], ['/custo
 await ir('/contact/1', 3000);
 await rango('.back-link', '.profile-panel', '11a-perfil-datos');
 await elem('.chat-panel', '11b-perfil-conversacion');
-await elem('.detail-side', '11c-perfil-lateral');
+await page.evaluate(() => { [...document.querySelectorAll('.detail-side section')].forEach((p, i) => p.setAttribute('id', 'side-' + i)); });
+await rango('#side-2', '#side-3', '11c-perfil-correccion-revision');
 await ir('/contact/7', 3000);
 const lc = await page.evaluateHandle(() => [...document.querySelectorAll('section.panel')].find(s => s.textContent.includes('AGENTE DE FIDELIZACIÓN')));
 if (lc.asElement()) { await lc.asElement().screenshot({ path: file('11d-perfil-ciclo-customer') }); console.log('ok 11d'); } else console.log('SIN panel ciclo customer');
@@ -132,6 +166,9 @@ await ir('/campaigns', 2500); await contenido('13-campanas');
 await ir('/exams', 2500); await contenido('14-examenes');
 await ir('/jobs', 2500); await contenido('15-trabajos');
 await ir('/settings', 2500); await contenido('16-configuracion');
+const secs = await page.$('.two-col > section');
+await secs[0].screenshot({ path: file('16a-configuracion-proveedor-ia') });
+await secs[1].screenshot({ path: file('16b-configuracion-conexiones-seguimiento') });
 
 // ---- Cierre de sesión ----
 await clickTexto('Cerrar sesión');

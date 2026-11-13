@@ -89,6 +89,16 @@ OPENAI_API_KEY=sk-...
 
 Reinicia `npm run dev` y `npm run worker`. El proveedor y el modelo se pueden cambiar en Configuración (administrador).
 
+### Reglas de negocio y modo del agente
+
+Las decisiones de negocio que antes estaban fijas en el código son **reglas** editables sin programar (tabla `amp_buyer_rules`, migración `010_buyer_rules`): niveles de semáforo de cada KPI, términos prohibidos (texto literal, sin tildes ni mayúsculas; nunca expresiones regulares), pilares del servicio, llamado a la landing, evidencia numérica, cobertura de B1 y B2, atribución, programación semanal y enfriamiento, alertas y directrices para la IA. Las reglas de medición del DataMart y la aprobación humana se muestran bloqueadas. Solo `ADMIN` y `DIRECCION` crean, modifican, eliminan o restauran reglas (`GET/POST /api/buyer/rules`, `buyer/rule/save|delete|restore`); cada cambio queda en `amp_events` (`BUYER_RULE_CHANGE`) con el valor anterior y el nuevo, y cada ejecución guarda en su `context.reglas` la instantánea que usó.
+
+El **modo** de cada actividad (`amp_settings.buyer_agent`, por defecto `MANUAL`) se cambia con `POST /api/buyer/agent/mode`. En `MANUAL` el agente solo corre cuando alguien pulsa «Ejecutar ahora» y las alertas solo avisan. En `AUTOMATICO` el worker además lanza la ejecución semanal y las alertas con acción `EJECUTAR_*`, respetando el enfriamiento; las propuestas siguen naciendo como borrador. El worker escribe un latido (`amp_settings.worker_heartbeat`, cada 10 s): sin latido en 45 s el panel lo marca como detenido. Reinicia `npm run worker` después de actualizar el código para que use las reglas y el latido nuevos. Detalle: [docs/agente-buyer-lead-reglas.md](docs/agente-buyer-lead-reglas.md).
+
+### Perfiles de los buyers capturados
+
+`GET /api/buyer/profiles` y `GET /api/buyer/profile?formulario=ID` leen directamente del OLTP (solo `SELECT`) a quienes enviaron el formulario. El AMP no guarda esos datos: el listado enmascara correo y teléfono y cada apertura de un detalle deja `BUYER_PROFILE_VIEW` en `amp_events`, sin datos personales.
+
 ## Plantillas para OpenAI
 
 Las seis plantillas, su configuración y las bases de conocimiento que debe preparar la empresa están en [docs/openai-agents/README.md](docs/openai-agents/README.md). La creación de agentes en OpenAI no los conecta automáticamente con este AMP; el backend conserva las reglas de envío y aprobación.

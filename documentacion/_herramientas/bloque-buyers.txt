@@ -1,0 +1,60 @@
+// ---- Buyers (diseño v2: barra del agente + pestañas) ----
+const marca = (texto, id) => page.evaluate((t, i) => { const h = [...document.querySelectorAll('.bp h3')].find(e => e.textContent.trim() === t); if (!h) throw new Error('Sin sección ' + t); h.closest('section').id = i; }, texto, id);
+const clic = (js) => page.evaluate(js);
+await ir('/buyers', 6000);
+await rango('.bp-agentbar', '.bp-tabs', '06a-buyers-barra-agente');
+await rango('.bp-filters', '.bp-kpis', '06b-buyers-resumen');
+
+await ir('/buyers/analisis', 6000);
+await marca('Lectura del periodo', 'sec-lectura');
+await rango('#sec-lectura', '.bp > .bp-grid-2', '06c-buyers-analisis-lectura');
+await marca('Por canal', 'sec-canal'); await marca('Por video', 'sec-video');
+await rango('#sec-canal', '#sec-video', '06d-buyers-analisis-desgloses');
+
+await ir('/buyers/agente', 6000);
+await marca('Actividades', 'sec-act'); await marca('Hoy en tiempo real', 'sec-hoy'); await marca('Ejecución en curso', 'sec-curso'); await marca('Lanzar una ejecución', 'sec-lanzar'); await marca('Ejecuciones recientes', 'sec-hist');
+await rango('#sec-act', '#sec-hoy', '06e-buyers-agente-tiempo-real');
+await rango('#sec-curso', '#sec-lanzar', '06f-buyers-agente-ejecucion-vivo');
+await clic(() => { const li = document.querySelector('#sec-hist .bp-runs > li'); li.id = 'run-1'; const d = li.querySelector('details'); if (d) d.open = true; });
+await sleep(600);
+await rango('#sec-hist', '#run-1', '06g-buyers-agente-historial');
+
+await ir('/buyers/propuestas', 6000);
+await clic(() => { const s = [...document.querySelectorAll('.bp h3')].find(e => e.textContent.trim() === 'Propuestas del agente').closest('section'); s.id = 'sec-prop'; s.querySelectorAll('.bp-proposal').forEach((x, i) => x.id = 'prop-' + (i + 1)); });
+await rango('#sec-prop', '#prop-2', '06h-buyers-propuestas');
+await clic(() => { [...document.querySelectorAll('#prop-1 button')].find(x => x.textContent.includes('Editar y aprobar')).click(); }); await sleep(700);
+await rango('#prop-1', '#prop-1', '06i-buyers-editar-propuesta');
+await clic(() => { [...document.querySelectorAll('#prop-2 button')].find(x => x.textContent.includes('Descartar')).click(); }); await sleep(700);
+await page.type('#prop-2 .bp-editor input', 'Motivo de ejemplo: el mensaje no encaja con la campaña vigente'); await sleep(300);
+await rango('#prop-2', '#prop-2', '06j-buyers-descartar-propuesta');
+
+await ir('/buyers/reglas', 6000);
+for (const [t, i] of [['Semáforos', 'sec-sem'], ['Medición', 'sec-med'], ['Contenido', 'sec-con'], ['Cobertura', 'sec-cob'], ['Automatización', 'sec-aut'], ['Aprobación', 'sec-apr'], ['Alertas', 'sec-alr'], ['Directrices', 'sec-dir']]) await marca(t, i);
+await elem('.bp-rules-head', '06k-buyers-reglas-cabecera');
+await clic(() => { [...document.querySelectorAll('#regla-SEM_B-1\\.2 button')].find(x => x.textContent.includes('Editar')).click(); }); await sleep(800);
+await rango('#sec-sem', '#sec-sem', '06l-buyers-reglas-semaforos');
+await ir('/buyers/reglas', 6000);
+for (const [t, i] of [['Contenido', 'sec-con'], ['Cobertura', 'sec-cob'], ['Automatización', 'sec-aut'], ['Aprobación', 'sec-apr'], ['Medición', 'sec-med'], ['Alertas', 'sec-alr'], ['Directrices', 'sec-dir']]) await marca(t, i);
+await rango('#sec-con', '#sec-cob', '06m-buyers-reglas-contenido-cobertura');
+await clic(() => { [...document.querySelectorAll('#regla-CON_PROHIBIDOS button')].find(x => x.textContent.includes('Editar')).click(); }); await sleep(800);
+await rango('#regla-CON_PROHIBIDOS', '#regla-CON_PROHIBIDOS', '06n-buyers-reglas-editor-prohibidos');
+await ir('/buyers/reglas', 6000);
+for (const [t, i] of [['Automatización', 'sec-aut'], ['Aprobación', 'sec-apr'], ['Medición', 'sec-med'], ['Alertas', 'sec-alr'], ['Directrices', 'sec-dir']]) await marca(t, i);
+await rango('#sec-aut', '#sec-dir', '06o-buyers-reglas-automatizacion-alertas');
+await clic(() => { [...document.querySelectorAll('#sec-alr button')].find(x => x.textContent.includes('Nueva alerta')).click(); }); await sleep(800);
+await rango('#sec-alr', '#sec-alr', '06p-buyers-reglas-nueva-alerta');
+await ir('/buyers/reglas', 6000);
+for (const [t, i] of [['Medición', 'sec-med'], ['Aprobación', 'sec-apr']]) await marca(t, i);
+await elem('#sec-med', '06q-buyers-reglas-bloqueadas');
+await elem('#sec-apr', '06r-buyers-reglas-aprobacion');
+
+await ir('/buyers/perfiles', 8000);
+await clic(() => { const s = [...document.querySelectorAll('.bp h3')].find(e => e.textContent.trim() === 'Perfiles').closest('section'); s.id = 'sec-perf'; const r = s.querySelector('tbody tr:nth-child(8)'); r.id = 'fila-8'; });
+await rango('#sec-perf', '#fila-8', '06s-buyers-perfiles-listado');
+await page.setViewport({ width: W, height: 1250, deviceScaleFactor: 1 });
+await clic(() => { document.querySelector('#sec-perf tbody tr .bp-namebtn').click(); });
+await page.waitForSelector('dialog.bp-drawer[open]', { timeout: 30000 }); await sleep(500); await listo(4000);
+await page.screenshot({ path: file('06t-buyers-perfiles-detalle') }); console.log('ok 06t-buyers-perfiles-detalle');
+await page.keyboard.press('Escape'); await sleep(500);
+await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 });
+

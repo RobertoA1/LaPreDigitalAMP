@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+let s = fs.readFileSync(new URL('./capturar.mjs', import.meta.url), 'utf8');
+const bloque = fs.readFileSync(new URL('./bloque-buyers.txt', import.meta.url), 'utf8');
+const a = s.indexOf('// ---- Buyers ----'), b = s.indexOf('// ---- Etapas ----');
+if (a < 0 || b < 0) throw new Error('marcas');
+s = s.slice(0, a) + bloque + s.slice(b);
+s = s.replace("const EMAIL = 'verificador@lapredigital.local';", "const EMAIL = process.env.AMP_EMAIL || 'verificador@lapredigital.local';");
+const old11c = "await elem('.detail-side', '11c-perfil-lateral');";
+if (!s.includes(old11c)) throw new Error('11c');
+s = s.replace(old11c, "await page.evaluate(() => { [...document.querySelectorAll('.detail-side section')].forEach((p, i) => p.setAttribute('id', 'side-' + i)); });\nawait rango('#side-2', '#side-3', '11c-perfil-correccion-revision');");
+const oldCfg = "await ir('/settings', 2500); await contenido('16-configuracion');";
+if (!s.includes(oldCfg)) throw new Error('cfg');
+s = s.replace(oldCfg, "await ir('/settings', 2500); await contenido('16-configuracion');\nconst secs = await page.$$('.two-col > section');\nawait secs[0].screenshot({ path: file('16a-configuracion-proveedor-ia') });\nawait secs[1].screenshot({ path: file('16b-configuracion-conexiones-seguimiento') });");
+fs.writeFileSync(new URL('./capturar.mjs', import.meta.url), s);
+console.log('ok');

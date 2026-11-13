@@ -241,106 +241,172 @@
     },
     {
       "figura": "Figura 09",
-      "archivo": "capturas/06a-buyers-filtros-kpi.png",
-      "pie": "Filtros globales y tarjetas de KPI con semáforo (octubre de 2026)",
+      "archivo": "capturas/06a-buyers-barra-agente.png",
+      "pie": "Barra del agente y pestañas de Buyers",
       "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
-      "opcion": "Filtros globales y KPI del periodo",
+      "opcion": "Barra del agente y pestañas",
       "ruta": "/buyers",
       "fuente": [
         {
-          "archivo": "src/app/buyer-panel.tsx",
+          "archivo": "src/app/buyers/agent-bar.tsx",
           "funciones": [
-            "BuyerPanel",
-            "KpiCards",
-            "useBlock",
-            "estadoDe",
-            "thresholdText"
+            "AgentBar",
+            "ActivityCard",
+            "WorkerChip",
+            "MiniStatus",
+            "cambiarModo",
+            "ejecutar"
           ]
         },
         {
-          "archivo": "src/lib/buyer-kpis.ts",
+          "archivo": "src/app/buyers/panel.tsx",
           "funciones": [
-            "KPI_DEFS",
-            "semaforo",
-            "kpisQuerySchema",
-            "buyerKpis",
-            "kpisPeriodo",
-            "listasFiltros",
-            "periodoPorDefecto",
-            "ultimaCarga",
-            "construirKpi"
+            "BuyerPanel",
+            "Panel"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/agent-meta.tsx",
+          "funciones": [
+            "workerEstado",
+            "pasoActual",
+            "ESTADO_AGENTE",
+            "DISPARADOR"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/hooks.ts",
+          "funciones": [
+            "useBlock",
+            "useUrlState",
+            "TABS"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-auto.ts",
+          "funciones": [
+            "estadoAgente",
+            "proximaEjecucion",
+            "modoAgente"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-agent.ts",
+          "funciones": [
+            "requestRun"
           ]
         },
         {
           "archivo": "src/app/api/[...path]/route.ts",
           "funciones": [
-            "GET buyer/kpis"
-          ]
-        }
-      ]
-    },
-    {
-      "figura": "Figura 09-B",
-      "archivo": "capturas/06a-buyers-filtros-kpi-periodo-completo.png",
-      "pie": "KPI con el periodo completo del 01/06/2025 al 31/10/2026",
-      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
-      "opcion": "Filtros globales y KPI del periodo",
-      "ruta": "/buyers",
-      "fuente": [
-        {
-          "archivo": "src/app/buyer-panel.tsx",
-          "funciones": [
-            "BuyerPanel",
-            "KpiCards",
-            "useBlock",
-            "estadoDe",
-            "thresholdText"
-          ]
-        },
-        {
-          "archivo": "src/lib/buyer-kpis.ts",
-          "funciones": [
-            "KPI_DEFS",
-            "semaforo",
-            "kpisQuerySchema",
-            "buyerKpis",
-            "kpisPeriodo",
-            "listasFiltros",
-            "periodoPorDefecto",
-            "ultimaCarga",
-            "construirKpi"
-          ]
-        },
-        {
-          "archivo": "src/app/api/[...path]/route.ts",
-          "funciones": [
-            "GET buyer/kpis"
+            "GET buyer/agent",
+            "POST buyer/agent/mode",
+            "POST buyer/run"
           ]
         }
       ]
     },
     {
       "figura": "Figura 10",
-      "archivo": "capturas/06b-buyers-tendencia-abandono.png",
-      "pie": "Tendencia mensual de un KPI y curva de abandono del video",
+      "archivo": "capturas/06b-buyers-resumen.png",
+      "pie": "Resumen: filtros globales, avisos abiertos y KPI con semáforo",
       "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
-      "opcion": "Tendencia mensual y curva de abandono",
+      "opcion": "Resumen: filtros, avisos y KPI del periodo",
       "ruta": "/buyers",
       "fuente": [
         {
-          "archivo": "src/app/buyer-panel.tsx",
+          "archivo": "src/app/buyers/tab-resumen.tsx",
           "funciones": [
-            "TrendSection",
-            "AbandonmentSection"
+            "TabResumen",
+            "AlertsSection",
+            "Kpis",
+            "KpiCard",
+            "variacion"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/filters.tsx",
+          "funciones": [
+            "FilterBar"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/hooks.ts",
+          "funciones": [
+            "useUrlState",
+            "useBlock"
           ]
         },
         {
           "archivo": "src/lib/buyer-kpis.ts",
           "funciones": [
+            "KPI_DEFS",
+            "semaforo",
+            "kpisQuerySchema",
+            "buyerKpis",
+            "kpisPeriodo",
+            "listasFiltros",
+            "periodoPorDefecto",
+            "ultimaCarga",
+            "construirKpi"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-auto.ts",
+          "funciones": [
+            "evaluarAlertas",
+            "estadoAgente"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET buyer/kpis",
+            "POST buyer/alert/ack"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 11",
+      "archivo": "capturas/06c-buyers-analisis-lectura.png",
+      "pie": "Análisis: lectura del periodo, tendencia mensual y curva de abandono",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Análisis y lectura del periodo",
+      "ruta": "/buyers/analisis",
+      "fuente": [
+        {
+          "archivo": "src/app/buyers/tab-analisis.tsx",
+          "funciones": [
+            "TabAnalisis",
+            "Trend",
+            "Abandonment",
+            "Desgloses",
+            "PorCanal",
+            "PorCampana",
+            "PorVideo",
+            "KpiCell"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/period-reading.ts",
+          "funciones": [
+            "leerPeriodo"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/ui.tsx",
+          "funciones": [
+            "SortTable"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-kpis.ts",
+          "funciones": [
+            "buyerKpis",
             "abandonmentQuerySchema",
             "curvaAbandono",
-            "construirCurva",
-            "buyerKpis"
+            "construirCurva"
           ]
         },
         {
@@ -353,48 +419,70 @@
       ]
     },
     {
-      "figura": "Figura 11",
-      "archivo": "capturas/06c-buyers-desgloses.png",
-      "pie": "Desgloses por canal, campaña y video",
+      "figura": "Figura 12",
+      "archivo": "capturas/06d-buyers-analisis-desgloses.png",
+      "pie": "Análisis: desgloses por canal, campaña y video",
       "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
-      "opcion": "Desgloses por canal, campaña y video",
-      "ruta": "/buyers",
+      "opcion": "Análisis y lectura del periodo",
+      "ruta": "/buyers/analisis",
       "fuente": [
         {
-          "archivo": "src/app/buyer-panel.tsx",
+          "archivo": "src/app/buyers/tab-analisis.tsx",
           "funciones": [
-            "BreakdownTables",
-            "KpiCell",
-            "estadoDe"
+            "TabAnalisis",
+            "Trend",
+            "Abandonment",
+            "Desgloses",
+            "PorCanal",
+            "PorCampana",
+            "PorVideo",
+            "KpiCell"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/period-reading.ts",
+          "funciones": [
+            "leerPeriodo"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/ui.tsx",
+          "funciones": [
+            "SortTable"
           ]
         },
         {
           "archivo": "src/lib/buyer-kpis.ts",
           "funciones": [
             "buyerKpis",
-            "semaforo"
+            "abandonmentQuerySchema",
+            "curvaAbandono",
+            "construirCurva"
           ]
         },
         {
           "archivo": "src/app/api/[...path]/route.ts",
           "funciones": [
-            "GET buyer/kpis"
+            "GET buyer/kpis",
+            "GET buyer/abandonment"
           ]
         }
       ]
     },
     {
-      "figura": "Figura 12",
-      "archivo": "capturas/06d-buyers-tiempo-real.png",
-      "pie": "Actividad de hoy en tiempo real y notificaciones",
+      "figura": "Figura 13",
+      "archivo": "capturas/06e-buyers-agente-tiempo-real.png",
+      "pie": "Agente: actividades, hoy en tiempo real y notificaciones",
       "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
-      "opcion": "Hoy en tiempo real y notificaciones",
-      "ruta": "/buyers",
+      "opcion": "Agente: tiempo real y notificaciones",
+      "ruta": "/buyers/agente",
       "fuente": [
         {
-          "archivo": "src/app/buyer-panel.tsx",
+          "archivo": "src/app/buyers/tab-agente.tsx",
           "funciones": [
-            "RealtimeSection"
+            "TabAgente",
+            "Actividades",
+            "Realtime"
           ]
         },
         {
@@ -423,18 +511,32 @@
       ]
     },
     {
-      "figura": "Figura 13",
-      "archivo": "capturas/06e-buyers-agente.png",
-      "pie": "Agente de conversión: indicaciones y botones de generación",
+      "figura": "Figura 14",
+      "archivo": "capturas/06f-buyers-agente-ejecucion-vivo.png",
+      "pie": "Agente: ejecución en curso (en reposo) y lanzamiento manual",
       "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
-      "opcion": "Agente: generar propuestas B-1 y B-2",
-      "ruta": "/buyers",
+      "opcion": "Agente: ejecución en vivo, lanzamiento e historial",
+      "ruta": "/buyers/agente",
       "fuente": [
         {
-          "archivo": "src/app/buyer-panel.tsx",
+          "archivo": "src/app/buyers/tab-agente.tsx",
           "funciones": [
-            "AgentSection",
-            "launch"
+            "EnCurso",
+            "LiveRun",
+            "Log",
+            "Lanzar",
+            "Historial",
+            "Run",
+            "ReglasAplicadas",
+            "describirReglas"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/agent-meta.tsx",
+          "funciones": [
+            "PASOS",
+            "PASO_TEXTO",
+            "logDe"
           ]
         },
         {
@@ -447,7 +549,7 @@
             "procesarSalidaIa",
             "validarPropuestas",
             "completarCobertura",
-            "scanBuyerSchedules"
+            "listarEjecuciones"
           ]
         },
         {
@@ -460,59 +562,87 @@
         {
           "archivo": "src/app/api/[...path]/route.ts",
           "funciones": [
-            "POST buyer/run"
-          ]
-        }
-      ]
-    },
-    {
-      "figura": "Figura 14",
-      "archivo": "capturas/06f-buyers-ejecucion-analisis.png",
-      "pie": "Ejecuciones del agente con el análisis desplegado",
-      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
-      "opcion": "Ejecuciones recientes y análisis",
-      "ruta": "/buyers",
-      "fuente": [
-        {
-          "archivo": "src/app/buyer-panel.tsx",
-          "funciones": [
-            "AgentSection",
-            "RUN_STATUS",
-            "TRIGGER"
-          ]
-        },
-        {
-          "archivo": "src/lib/buyer-agent.ts",
-          "funciones": [
-            "executeRun",
-            "listarEjecuciones",
-            "ejecucionAPlano",
-            "analisisPlantilla"
-          ]
-        },
-        {
-          "archivo": "src/app/api/[...path]/route.ts",
-          "funciones": [
-            "GET buyer/runs"
+            "POST buyer/run",
+            "GET buyer/runs",
+            "GET buyer/agent"
           ]
         }
       ]
     },
     {
       "figura": "Figura 15",
-      "archivo": "capturas/06g-buyers-propuestas.png",
-      "pie": "Bandeja de propuestas del agente",
+      "archivo": "capturas/06g-buyers-agente-historial.png",
+      "pie": "Agente: historial de ejecuciones con el registro desplegado",
       "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
-      "opcion": "Bandeja de propuestas",
-      "ruta": "/buyers",
+      "opcion": "Agente: ejecución en vivo, lanzamiento e historial",
+      "ruta": "/buyers/agente",
       "fuente": [
         {
-          "archivo": "src/app/buyer-panel.tsx",
+          "archivo": "src/app/buyers/tab-agente.tsx",
           "funciones": [
-            "ProposalsSection",
-            "Proposal",
-            "evidenceLines",
-            "copyText"
+            "EnCurso",
+            "LiveRun",
+            "Log",
+            "Lanzar",
+            "Historial",
+            "Run",
+            "ReglasAplicadas",
+            "describirReglas"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/agent-meta.tsx",
+          "funciones": [
+            "PASOS",
+            "PASO_TEXTO",
+            "logDe"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-agent.ts",
+          "funciones": [
+            "solicitudRunSchema",
+            "requestRun",
+            "executeRun",
+            "buildContext",
+            "procesarSalidaIa",
+            "validarPropuestas",
+            "completarCobertura",
+            "listarEjecuciones"
+          ]
+        },
+        {
+          "archivo": "src/lib/jobs.ts",
+          "funciones": [
+            "enqueue",
+            "processNextJob"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "POST buyer/run",
+            "GET buyer/runs",
+            "GET buyer/agent"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 16",
+      "archivo": "capturas/06h-buyers-propuestas.png",
+      "pie": "Propuestas: filtros, acciones en bloque y bandeja",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Propuestas: bandeja, edición y descarte",
+      "ruta": "/buyers/propuestas",
+      "fuente": [
+        {
+          "archivo": "src/app/buyers/tab-propuestas.tsx",
+          "funciones": [
+            "TabPropuestas",
+            "BulkActions",
+            "Card",
+            "seccionesPublicacion"
           ]
         },
         {
@@ -522,6 +652,8 @@
             "filtroPropuestasSchema",
             "decisionSchema",
             "decidirPropuesta",
+            "decidirVarias",
+            "detectarProhibidos",
             "propuestaAPlano"
           ]
         },
@@ -529,74 +661,524 @@
           "archivo": "src/app/api/[...path]/route.ts",
           "funciones": [
             "GET buyer/proposals",
-            "POST buyer/proposal/decide"
-          ]
-        }
-      ]
-    },
-    {
-      "figura": "Figura 16",
-      "archivo": "capturas/06h-buyers-editar-propuesta.png",
-      "pie": "Edición de una propuesta con «Editar y aprobar» (sin guardar)",
-      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
-      "opcion": "Editar y aprobar una propuesta",
-      "ruta": "/buyers",
-      "fuente": [
-        {
-          "archivo": "src/app/buyer-panel.tsx",
-          "funciones": [
-            "Proposal (modo edit)",
-            "decide"
-          ]
-        },
-        {
-          "archivo": "src/lib/buyer-agent.ts",
-          "funciones": [
-            "decidirPropuesta",
-            "detectarProhibidos",
-            "decisionSchema"
-          ]
-        },
-        {
-          "archivo": "src/app/api/[...path]/route.ts",
-          "funciones": [
-            "POST buyer/proposal/decide"
+            "POST buyer/proposal/decide",
+            "POST buyer/proposals/decide-many"
           ]
         }
       ]
     },
     {
       "figura": "Figura 17",
-      "archivo": "capturas/06i-buyers-descartar-propuesta.png",
-      "pie": "Descarte de una propuesta con su motivo (sin confirmar)",
+      "archivo": "capturas/06i-buyers-editar-propuesta.png",
+      "pie": "Edición de una propuesta con «Editar y aprobar» (sin guardar)",
       "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
-      "opcion": "Descartar una propuesta",
-      "ruta": "/buyers",
+      "opcion": "Propuestas: bandeja, edición y descarte",
+      "ruta": "/buyers/propuestas",
       "fuente": [
         {
-          "archivo": "src/app/buyer-panel.tsx",
+          "archivo": "src/app/buyers/tab-propuestas.tsx",
           "funciones": [
-            "Proposal (modo discard)",
-            "decide"
+            "TabPropuestas",
+            "BulkActions",
+            "Card",
+            "seccionesPublicacion"
           ]
         },
         {
           "archivo": "src/lib/buyer-agent.ts",
           "funciones": [
+            "listarPropuestas",
+            "filtroPropuestasSchema",
+            "decisionSchema",
             "decidirPropuesta",
-            "decisionSchema"
+            "decidirVarias",
+            "detectarProhibidos",
+            "propuestaAPlano"
           ]
         },
         {
           "archivo": "src/app/api/[...path]/route.ts",
           "funciones": [
-            "POST buyer/proposal/decide"
+            "GET buyer/proposals",
+            "POST buyer/proposal/decide",
+            "POST buyer/proposals/decide-many"
           ]
         }
       ]
     },
     {
       "figura": "Figura 18",
+      "archivo": "capturas/06j-buyers-descartar-propuesta.png",
+      "pie": "Descarte de una propuesta con su motivo (sin confirmar)",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Propuestas: bandeja, edición y descarte",
+      "ruta": "/buyers/propuestas",
+      "fuente": [
+        {
+          "archivo": "src/app/buyers/tab-propuestas.tsx",
+          "funciones": [
+            "TabPropuestas",
+            "BulkActions",
+            "Card",
+            "seccionesPublicacion"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-agent.ts",
+          "funciones": [
+            "listarPropuestas",
+            "filtroPropuestasSchema",
+            "decisionSchema",
+            "decidirPropuesta",
+            "decidirVarias",
+            "detectarProhibidos",
+            "propuestaAPlano"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET buyer/proposals",
+            "POST buyer/proposal/decide",
+            "POST buyer/proposals/decide-many"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 19",
+      "archivo": "capturas/06l-buyers-reglas-semaforos.png",
+      "pie": "Reglas: semáforos con el editor de B-1.2 abierto (sin guardar)",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Reglas: niveles de semáforo",
+      "ruta": "/buyers/reglas",
+      "fuente": [
+        {
+          "archivo": "src/app/buyers/tab-reglas.tsx",
+          "funciones": [
+            "TabReglas",
+            "RuleCard",
+            "Editor"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/rule-forms.tsx",
+          "funciones": [
+            "RuleForm",
+            "semaforoValido"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/rule-summary.ts",
+          "funciones": [
+            "resumenRegla",
+            "paramsDe"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-rules.ts",
+          "funciones": [
+            "listarReglas",
+            "guardarRegla",
+            "guardarReglaSchema",
+            "semaforo",
+            "reglasVigentes"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET buyer/rules",
+            "POST buyer/rule/save"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 20",
+      "archivo": "capturas/06m-buyers-reglas-contenido-cobertura.png",
+      "pie": "Reglas: contenido de las propuestas y cobertura",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Reglas: contenido y cobertura",
+      "ruta": "/buyers/reglas",
+      "fuente": [
+        {
+          "archivo": "src/app/buyers/tab-reglas.tsx",
+          "funciones": [
+            "TabReglas",
+            "RuleCard",
+            "Editor",
+            "alternarActiva"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/rule-forms.tsx",
+          "funciones": [
+            "RuleForm"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-rules.ts",
+          "funciones": [
+            "guardarRegla",
+            "listarReglas",
+            "REGLAS_FABRICA"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-agent.ts",
+          "funciones": [
+            "detectarProhibidos",
+            "validarPropuestas",
+            "exigirPilarYLlamado",
+            "faltantesCobertura"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET buyer/rules",
+            "POST buyer/rule/save"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 21",
+      "archivo": "capturas/06n-buyers-reglas-editor-prohibidos.png",
+      "pie": "Editor de términos prohibidos (sin guardar)",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Reglas: contenido y cobertura",
+      "ruta": "/buyers/reglas",
+      "fuente": [
+        {
+          "archivo": "src/app/buyers/tab-reglas.tsx",
+          "funciones": [
+            "TabReglas",
+            "RuleCard",
+            "Editor",
+            "alternarActiva"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/rule-forms.tsx",
+          "funciones": [
+            "RuleForm"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-rules.ts",
+          "funciones": [
+            "guardarRegla",
+            "listarReglas",
+            "REGLAS_FABRICA"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-agent.ts",
+          "funciones": [
+            "detectarProhibidos",
+            "validarPropuestas",
+            "exigirPilarYLlamado",
+            "faltantesCobertura"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET buyer/rules",
+            "POST buyer/rule/save"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 22",
+      "archivo": "capturas/06o-buyers-reglas-automatizacion-alertas.png",
+      "pie": "Reglas: automatización, aprobación, alertas y directrices",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Reglas: automatización, alertas y directrices",
+      "ruta": "/buyers/reglas",
+      "fuente": [
+        {
+          "archivo": "src/app/buyers/tab-reglas.tsx",
+          "funciones": [
+            "TabReglas",
+            "Editor"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/rule-forms.tsx",
+          "funciones": [
+            "RuleForm"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/rule-summary.ts",
+          "funciones": [
+            "fraseAlerta",
+            "resumenRegla"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-auto.ts",
+          "funciones": [
+            "evaluarAlertas",
+            "proximaEjecucion",
+            "scanBuyerAuto"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-rules.ts",
+          "funciones": [
+            "guardarRegla",
+            "eliminarRegla",
+            "reglasVigentes"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "POST buyer/rule/save",
+            "POST buyer/rule/delete"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 23",
+      "archivo": "capturas/06p-buyers-reglas-nueva-alerta.png",
+      "pie": "Formulario «Nueva alerta» (sin crear)",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Reglas: automatización, alertas y directrices",
+      "ruta": "/buyers/reglas",
+      "fuente": [
+        {
+          "archivo": "src/app/buyers/tab-reglas.tsx",
+          "funciones": [
+            "TabReglas",
+            "Editor"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/rule-forms.tsx",
+          "funciones": [
+            "RuleForm"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/rule-summary.ts",
+          "funciones": [
+            "fraseAlerta",
+            "resumenRegla"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-auto.ts",
+          "funciones": [
+            "evaluarAlertas",
+            "proximaEjecucion",
+            "scanBuyerAuto"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-rules.ts",
+          "funciones": [
+            "guardarRegla",
+            "eliminarRegla",
+            "reglasVigentes"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "POST buyer/rule/save",
+            "POST buyer/rule/delete"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 24",
+      "archivo": "capturas/06k-buyers-reglas-cabecera.png",
+      "pie": "Reglas: cabecera con «Restaurar todas»",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Reglas: restaurar, reglas bloqueadas y registro de cambios",
+      "ruta": "/buyers/reglas",
+      "fuente": [
+        {
+          "archivo": "src/app/buyers/tab-reglas.tsx",
+          "funciones": [
+            "TabReglas",
+            "RuleCard",
+            "ejecutar (restaurar)"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-rules.ts",
+          "funciones": [
+            "restaurarRegla",
+            "restaurarReglaSchema",
+            "historialReglas",
+            "REGLAS_FABRICA"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "POST buyer/rule/restore",
+            "GET buyer/rules/history"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 25",
+      "archivo": "capturas/06q-buyers-reglas-bloqueadas.png",
+      "pie": "Reglas de medición bloqueadas",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Reglas: restaurar, reglas bloqueadas y registro de cambios",
+      "ruta": "/buyers/reglas",
+      "fuente": [
+        {
+          "archivo": "src/app/buyers/tab-reglas.tsx",
+          "funciones": [
+            "TabReglas",
+            "RuleCard",
+            "ejecutar (restaurar)"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-rules.ts",
+          "funciones": [
+            "restaurarRegla",
+            "restaurarReglaSchema",
+            "historialReglas",
+            "REGLAS_FABRICA"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "POST buyer/rule/restore",
+            "GET buyer/rules/history"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 26",
+      "archivo": "capturas/06r-buyers-reglas-aprobacion.png",
+      "pie": "Regla bloqueada de aprobación humana",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Reglas: restaurar, reglas bloqueadas y registro de cambios",
+      "ruta": "/buyers/reglas",
+      "fuente": [
+        {
+          "archivo": "src/app/buyers/tab-reglas.tsx",
+          "funciones": [
+            "TabReglas",
+            "RuleCard",
+            "ejecutar (restaurar)"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-rules.ts",
+          "funciones": [
+            "restaurarRegla",
+            "restaurarReglaSchema",
+            "historialReglas",
+            "REGLAS_FABRICA"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "POST buyer/rule/restore",
+            "GET buyer/rules/history"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 27",
+      "archivo": "capturas/06s-buyers-perfiles-listado.png",
+      "pie": "Perfiles: tarjetas por estado, filtros y listado enmascarado",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Perfiles: listado de buyers capturados",
+      "ruta": "/buyers/perfiles",
+      "fuente": [
+        {
+          "archivo": "src/app/buyers/tab-perfiles.tsx",
+          "funciones": [
+            "TabPerfiles"
+          ]
+        },
+        {
+          "archivo": "src/app/buyers/perfil-detalle.tsx",
+          "funciones": [
+            "EstadoForm",
+            "Avance",
+            "rolTexto",
+            "campanaTexto"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-profiles.ts",
+          "funciones": [
+            "listarPerfiles",
+            "perfilesQuerySchema",
+            "enmascararCorreo",
+            "enmascararTelefono"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET buyer/profiles"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 28",
+      "archivo": "capturas/06t-buyers-perfiles-detalle.png",
+      "pie": "Perfiles: cajón de detalle de un buyer capturado (caso ficticio)",
+      "modulo": "D) BUYERS · AGENTE DE CONVERSIÓN BUYER → LEAD",
+      "opcion": "Perfiles: detalle del buyer",
+      "ruta": "/buyers/perfiles?formulario={id}",
+      "fuente": [
+        {
+          "archivo": "src/app/buyers/perfil-detalle.tsx",
+          "funciones": [
+            "PerfilDetalle",
+            "Avance",
+            "EstadoForm"
+          ]
+        },
+        {
+          "archivo": "src/lib/buyer-profiles.ts",
+          "funciones": [
+            "perfilDetalle",
+            "perfilQuerySchema"
+          ]
+        },
+        {
+          "archivo": "src/lib/contacts.ts",
+          "funciones": [
+            "event (BUYER_PROFILE_VIEW)"
+          ]
+        },
+        {
+          "archivo": "src/app/api/[...path]/route.ts",
+          "funciones": [
+            "GET buyer/profile"
+          ]
+        }
+      ]
+    },
+    {
+      "figura": "Figura 29",
       "archivo": "capturas/07-leads.png",
       "pie": "Listado de Leads por prioridad",
       "modulo": "E) LEADS · AGENTE NEGOCIADOR",
@@ -634,7 +1216,7 @@
       ]
     },
     {
-      "figura": "Figura 19",
+      "figura": "Figura 30",
       "archivo": "capturas/08-payers.png",
       "pie": "Listado de Payers por prioridad",
       "modulo": "F) PAYERS · AGENTE DE COBRANZA",
@@ -677,7 +1259,7 @@
       ]
     },
     {
-      "figura": "Figura 20",
+      "figura": "Figura 31",
       "archivo": "capturas/09-customers.png",
       "pie": "Listado de Customers por prioridad",
       "modulo": "G) CUSTOMERS · AGENTE DE FIDELIZACIÓN Y ACOMPAÑAMIENTO",
@@ -721,7 +1303,7 @@
       ]
     },
     {
-      "figura": "Figura 21",
+      "figura": "Figura 32",
       "archivo": "capturas/10-turned.png",
       "pie": "Listado de Turned por prioridad",
       "modulo": "H) TURNED · AGENTE DE REACTIVACIÓN Y POSTVENTA",
@@ -761,7 +1343,7 @@
       ]
     },
     {
-      "figura": "Figura 22",
+      "figura": "Figura 33",
       "archivo": "capturas/11a-perfil-datos.png",
       "pie": "Perfil del contacto: cabecera y datos del datamart",
       "modulo": "I) PERFIL DEL CONTACTO",
@@ -800,7 +1382,7 @@
       ]
     },
     {
-      "figura": "Figura 23",
+      "figura": "Figura 34",
       "archivo": "capturas/11b-perfil-conversacion.png",
       "pie": "Conversación del contacto y compositor de mensajes",
       "modulo": "I) PERFIL DEL CONTACTO",
@@ -832,7 +1414,7 @@
       ]
     },
     {
-      "figura": "Figura 24",
+      "figura": "Figura 35",
       "archivo": "capturas/11c-perfil-correccion-revision.png",
       "pie": "Corrección auditada y revisión humana de prioridad o beca",
       "modulo": "I) PERFIL DEL CONTACTO",
@@ -862,7 +1444,7 @@
       ]
     },
     {
-      "figura": "Figura 25",
+      "figura": "Figura 36",
       "archivo": "capturas/11d-perfil-ciclo-customer.png",
       "pie": "Panel del Agente de Fidelización y Acompañamiento (Customer)",
       "modulo": "I) PERFIL DEL CONTACTO",
@@ -907,7 +1489,7 @@
       ]
     },
     {
-      "figura": "Figura 26",
+      "figura": "Figura 37",
       "archivo": "capturas/11e-perfil-reportes-semanales.png",
       "pie": "Reportes semanales de seguimiento académico",
       "modulo": "I) PERFIL DEL CONTACTO",
@@ -936,7 +1518,7 @@
       ]
     },
     {
-      "figura": "Figura 27",
+      "figura": "Figura 38",
       "archivo": "capturas/11f-perfil-ciclo-turned.png",
       "pie": "Panel del Agente de Reactivación y Postventa (Turned)",
       "modulo": "I) PERFIL DEL CONTACTO",
@@ -968,7 +1550,7 @@
       ]
     },
     {
-      "figura": "Figura 28",
+      "figura": "Figura 39",
       "archivo": "capturas/11g-perfil-historial.png",
       "pie": "Historial de acciones del contacto",
       "modulo": "I) PERFIL DEL CONTACTO",
@@ -997,7 +1579,7 @@
       ]
     },
     {
-      "figura": "Figura 29",
+      "figura": "Figura 40",
       "archivo": "capturas/12-aprobaciones.png",
       "pie": "Aprobaciones pendientes",
       "modulo": "J) APROBACIONES",
@@ -1027,7 +1609,7 @@
       ]
     },
     {
-      "figura": "Figura 30",
+      "figura": "Figura 41",
       "archivo": "capturas/13-campanas.png",
       "pie": "Campañas: nueva campaña y campañas registradas",
       "modulo": "K) CAMPAÑAS",
@@ -1059,7 +1641,7 @@
       ]
     },
     {
-      "figura": "Figura 31",
+      "figura": "Figura 42",
       "archivo": "capturas/14-examenes.png",
       "pie": "Importación y verificación de exámenes de admisión",
       "modulo": "L) EXÁMENES DE ADMISIÓN",
@@ -1093,7 +1675,7 @@
       ]
     },
     {
-      "figura": "Figura 32",
+      "figura": "Figura 43",
       "archivo": "capturas/15-trabajos.png",
       "pie": "Cola de trabajos del servidor",
       "modulo": "M) TRABAJOS DEL SERVIDOR",
@@ -1130,7 +1712,7 @@
       ]
     },
     {
-      "figura": "Figura 33",
+      "figura": "Figura 44",
       "archivo": "capturas/16-configuracion.png",
       "pie": "Pantalla de Configuración",
       "modulo": "N) CONFIGURACIÓN",
@@ -1152,7 +1734,7 @@
       ]
     },
     {
-      "figura": "Figura 34",
+      "figura": "Figura 45",
       "archivo": "capturas/16a-configuracion-proveedor-ia.png",
       "pie": "Proveedor y modelo de inteligencia artificial",
       "modulo": "N) CONFIGURACIÓN",
@@ -1181,7 +1763,7 @@
       ]
     },
     {
-      "figura": "Figura 35",
+      "figura": "Figura 46",
       "archivo": "capturas/16b-configuracion-conexiones-seguimiento.png",
       "pie": "Estado de conexiones y plazo de seguimiento",
       "modulo": "N) CONFIGURACIÓN",

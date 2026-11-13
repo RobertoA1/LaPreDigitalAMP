@@ -23,8 +23,8 @@ let figNum = 0;
 const indice = [];
 
 function figura(f, modulo, opcion) {
-  let num;
-  if (f.etiqueta) num = f.etiqueta; else { figNum += 1; num = String(figNum).padStart(2, '0'); }
+  let num; // (sin etiquetas especiales: numeración correlativa)
+  figNum += 1; num = String(figNum).padStart(2, '0');
   const img = pngSize(path.join(capturas, f.archivo));
   const escala = Math.min((15 * 96 / 2.54) / img.w, (15.5 * 96 / 2.54) / img.h, 0.9);
   const width = Math.round(img.w * escala), height = Math.round(img.h * escala);

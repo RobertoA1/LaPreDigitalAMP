@@ -10,6 +10,7 @@ import {
 } from 'docx';
 import { resolver, formatear, mismosTokens } from './extraer.mjs';
 import { codigo } from './contenido-codigo.mjs';
+import { buyersPorOpcion } from './contenido-codigo-buyers.mjs';
 
 const aqui = path.dirname(fileURLToPath(import.meta.url));
 const raiz = path.resolve(aqui, '..');
@@ -63,9 +64,18 @@ const numFig = {};
 let _n = 0;
 for (const m of modulos) for (const o of m.opciones) for (const f of o.figuras) numFig[f.archivo] = f.etiqueta ? f.etiqueta : String(++_n).padStart(2, '0');
 const resolverVer = (s) => s.replace(/{([^}]+)}/g, (_, k) => { if (!numFig[k]) throw new Error('Referencia a figura inexistente: ' + k); return numFig[k]; });
-async function bloquesDeCodigo(clave, modLetra) {
-  const def = codigo[clave];
-  if (!def) throw new Error(`Falta código para la captura ${clave}`);
+const opcionYaConCodigo = new Map();
+async function bloquesDeCodigo(clave, modLetra, opcionTitulo, figEtiqueta) {
+  let def = codigo[clave];
+  if (!def) {
+    const o = buyersPorOpcion.find(x => x.re.test(opcionTitulo));
+    if (o) {
+      if (opcionYaConCodigo.has(opcionTitulo)) def = { fragmentos: [], ver: `El código de esta opción se muestra en la Figura ${opcionYaConCodigo.get(opcionTitulo)}.` };
+      else { def = o; opcionYaConCodigo.set(opcionTitulo, figEtiqueta); }
+    }
+  }
+  if (!def && process.env.BORRADOR) { console.warn(`[borrador] sin código para ${clave} (${opcionTitulo})`); def = { fragmentos: [] }; }
+  if (!def) throw new Error(`Falta código para la captura ${clave} (opción «${opcionTitulo}»)`);
   const nodos = [];
   const archivos = [];
   const listaFrag = [];
@@ -133,7 +143,8 @@ const arbol = [
   '│   │   ├── [[...slug]]/page.tsx      Página servidor: exige sesión y monta <App>',
   '│   │   ├── client.tsx                Vistas cliente: menú, Dashboard, Radar, etapas,',
   '│   │   │                             perfil, aprobaciones, campañas, exámenes, trabajos',
-  '│   │   ├── buyer-panel.tsx           Panel de Buyers (KPI, tiempo real, agente, propuestas)',
+  '│   │   ├── buyers/                   Panel de Buyers: barra del agente y pestañas Resumen,',
+  '│   │   │                             Análisis, Agente, Propuestas, Reglas y Perfiles',
   '│   │   ├── lifecycle-panel.tsx       Panel del ciclo de vida (Customer y Turned)',
   '│   │   ├── login/page.tsx, ui.tsx    Pantalla de inicio de sesión',
   '│   │   └── api/[...path]/route.ts    API única (GET y POST) con despacho por ruta',
@@ -147,8 +158,11 @@ const libs = [
   ['agents.ts', 'Agente IMPULSE de Leads y Payers: contexto, propuesta con IA (con respaldo por plantilla) y aprobaciones.'],
   ['ai.ts', 'Cliente único de IA (OpenAI, Gemini, Grok, Anthropic): aiConfig y generate.'],
   ['auth.ts', 'Sesión firmada con HMAC, cookie httpOnly, usuario actual y permisos por rol.'],
-  ['buyer-agent.ts', 'Agente Buyer → Lead: contexto, prompts, esquemas zod, validadores, plantillas, ejecución, programación y decisión.'],
-  ['buyer-kpis.ts', 'KPI B-1.1 a B-3.1, umbrales y semáforo; consultas al DataMart y al OLTP; caché.'],
+  ['buyer-agent.ts', 'Agente Buyer → Lead: contexto, prompts, esquemas zod, validadores, plantillas, ejecución con pasos y registro, y decisión de propuestas.'],
+  ['buyer-auto.ts', 'Modo automático/manual, latido del worker, estado del agente, ejecución semanal y alertas.'],
+  ['buyer-profiles.ts', 'Perfiles de los buyers capturados por el formulario (lectura del OLTP, enmascarado y detalle).'],
+  ['buyer-rules.ts', 'Reglas de negocio variables: semáforos, contenido, cobertura, automatización, alertas y directrices.'],
+  ['buyer-kpis.ts', 'KPI B-1.1 a B-3.1 con los semáforos vigentes; consultas al DataMart y al OLTP; caché.'],
   ['buyer-webhook.ts', 'Webhook de nuevas inscripciones: secreto, esquema e idempotencia.'],
   ['catalog.ts', 'Capacidades de cada plan de servicio.'],
   ['contacts.ts', 'Lectura de contactos con correcciones auditadas, historial y eventos de trazabilidad.'],
@@ -168,10 +182,10 @@ const libs = [
   ['types.ts', 'Tipos y etiquetas compartidos (etapas, roles, canales).']
 ];
 const scripts = [
-  ['scripts/migrate.ts', 'Crea la base propia si no existe y aplica las migraciones 001–009 (npm run db:migrate).'],
+  ['scripts/migrate.ts', 'Crea la base propia si no existe y aplica las migraciones 001–012 (npm run db:migrate).'],
   ['scripts/seed.ts', 'Datos de demostración (npm run db:seed).'],
   ['scripts/create-user.ts', 'Alta de usuarios con correo, rol y nombre (npm run user:create).'],
-  ['scripts/worker.ts', 'Proceso en segundo plano: planificador y tres bucles de trabajo (npm run worker).']
+  ['scripts/worker.ts', 'Proceso en segundo plano: latido, planificador, programación del agente Buyer y tres bucles de trabajo (npm run worker).']
 ];
 const bases = [
   ['LaPreDigitalAMP (propia)', 'Lectura y escritura. Tablas amp_* (usuarios, eventos, mensajes, trabajos, aprobaciones, campañas, exámenes, Buyers) y proyecciones dm_* del datamart. Variables DB_*.'],
@@ -208,7 +222,7 @@ function tramo(rel, desde, hastaExcl) {
 async function anexo() {
   const esquemaCrudo = tramo('src/lib/schema.ts', '// Agente de conversión Buyer → Lead', '\n};');
   // el esquema termina en "  }\n};": se recorta al cierre de amp_buyer_proposals
-  const migracionCruda = tramo('scripts/migrate.ts', "const eighth = '008_buyer_lead_agent';", "const ninth =");
+  const migracionCruda = [...tramo('scripts/migrate.ts', "const eighth = '008_buyer_lead_agent';", "const ninth ="), ...tramo('scripts/migrate.ts', "const tenth = '010_buyer_rules';", "const twelfth =")];
   const NL = String.fromCharCode(10);
   const envuelto = ['const specs = {', ...esquemaCrudo, '};'].join(NL);
   const fe = (await formatear(envuelto)).split(NL);
@@ -220,9 +234,9 @@ async function anexo() {
   const bloque = (rot, nota, lineas) => [rotuloP(rot), notaP(nota), ...lineas.map((l, i) => lineaCodigo(l, i === lineas.length - 1))];
   return [
     h1('ANEXO: ESQUEMA DE LAS TABLAS amp_buyer_*'),
-    body('Las tres tablas del agente Buyer → Lead se declaran en src/lib/schema.ts y las crea la migración 008_buyer_lead_agent de scripts/migrate.ts. No almacenan datos personales de los inscritos.'),
-    ...bloque('src/lib/schema.ts — specs (amp_buyer_notifications, amp_buyer_runs, amp_buyer_proposals)', 'Notificaciones del webhook, ejecuciones del agente y propuestas (BORRADOR, APROBADA o DESCARTADA).', esquema),
-    ...bloque('scripts/migrate.ts — migración 008_buyer_lead_agent', 'Crea las tres tablas desde el esquema y sus índices; queda registrada en amp_migrations.', migracion)
+    body('Las cinco tablas del agente Buyer → Lead se declaran en src/lib/schema.ts y las crean las migraciones 008, 010 y 011 de scripts/migrate.ts. No almacenan datos personales de los inscritos: los perfiles del formulario se leen directamente del OLTP.'),
+    ...bloque('src/lib/schema.ts — specs (amp_buyer_notifications, amp_buyer_runs, amp_buyer_proposals, amp_buyer_rules, amp_buyer_alerts)', 'Notificaciones del webhook, ejecuciones (con paso y registro), propuestas, reglas de negocio y avisos de alertas.', esquema),
+    ...bloque('scripts/migrate.ts — migraciones 008_buyer_lead_agent, 010_buyer_rules y 011_buyer_run_progress', 'Crean las tablas desde el esquema, sus índices, la siembra de reglas y las columnas de progreso; cada una queda registrada en amp_migrations.', migracion)
   ];
 }
 
@@ -238,7 +252,7 @@ for (const m of modulos) {
     for (const f of o.figuras) {
       const fig = figura(f);
       cuerpo.push(...fig.nodes);
-      cuerpo.push(...await bloquesDeCodigo(f.archivo, m.letra));
+      cuerpo.push(...await bloquesDeCodigo(f.archivo, m.letra, o.titulo, fig.num));
     }
   }
   salidaIndice.modulos.push(sec);
@@ -262,7 +276,7 @@ const doc = new Document({
   ]
 });
 
-const salida = path.join(raiz, 'Manual_de_Codigo_Fuente_LaPreDigital_AMP.docx');
+const salida = process.env.SALIDA_DOCX || path.join(raiz, 'Manual_de_Codigo_Fuente_LaPreDigital_AMP.docx');
 fs.writeFileSync(salida, await Packer.toBuffer(doc));
 fs.writeFileSync(path.join(aqui, 'resumen-fragmentos.json'), JSON.stringify({ generado: new Date().toISOString(), figuras: figNum, fragmentos: estadistica.fragmentos, lineas: estadistica.lineas, indice: salidaIndice, porModulo: estadistica.porModulo }, null, 2));
 console.log('Generado', salida, `(${figNum} figuras, ${estadistica.fragmentos} fragmentos, ${estadistica.lineas} líneas de código)`);

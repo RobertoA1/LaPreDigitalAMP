@@ -63,7 +63,8 @@ function Realtime() {
       {notes.length ? <ul className="bp-notes">{notes.map(n => <li key={n.id}>
         <strong>Formulario #{n.formId}</strong><Tag tone={toneForm(n.formStatus)}>{FORM_STATES[n.formStatus] || n.formStatus}</Tag>
         <span>{n.channel || 'Canal sin identificar'}</span><span>{n.campaignName || 'Sin campaña'}</span><span>{lima(n.occurredAt || n.receivedAt, true)}</span>
-        <Tag tone={n.verified ? 'teal' : 'orange'}>{n.verified ? 'Verificada en el OLTP' : 'No verificada'}</Tag></li>)}</ul>
+        <Tag tone={n.verified ? 'teal' : 'orange'}>{n.verified ? 'Verificada en el OLTP' : 'No verificada'}</Tag>
+        <TabLink tab="perfiles" extra={{ formulario: String(n.formId) }} className="text-link">Ver perfil</TabLink></li>)}</ul>
         : <p className="muted">Aún no llegan notificaciones de inscripciones.</p>}
     </>}
   </Section>;

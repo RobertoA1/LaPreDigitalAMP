@@ -155,7 +155,7 @@ export async function resolver(f) {
     rotulo = `${base} — ${f.simbolos.join(', ')}`;
   } else if (f.tipo === 'rama') {
     partes.push(rama(base, f.fn, f.cond));
-    rotulo = `${base} — ${f.cond.includes("startsWith") ? "" : f.fn + " "}${nombreRama(f.cond)}`;
+    rotulo = f.rotulo ? `${base} — ${f.rotulo}` : `${base} — ${f.cond.includes("startsWith") ? "" : f.fn + " "}${nombreRama(f.cond)}`;
   } else if (f.tipo === 'archivo') {
     partes.push(archivoCompleto(base));
     rotulo = `${base} — archivo completo`;
@@ -172,6 +172,12 @@ export async function resolver(f) {
   if (f.desde || f.omitir) {
     lineas = recortar(lineas, { desde: f.desde, hasta: f.hasta, omitir: f.omitir || [] });
     if (f.desde) rotulo += ' (fragmento)';
+  }
+  const MAXL = f.max ?? 70;
+  if (lineas.length > MAXL) {
+    const sang = (lineas[MAXL] || '').match(/^s*/)[0];
+    lineas = [...lineas.slice(0, MAXL), sang + '// …'];
+    if (!rotulo.includes('(')) rotulo += ' (fragmento)';
   }
   if (f.tipo === 'simbolo' && f.simbolos.length === 1 && (f.omitir || f.desde) && !f.desde) rotulo += ' (abreviado)';
   return { rotulo, archivo: base, lineas, avisos, nota: f.nota };

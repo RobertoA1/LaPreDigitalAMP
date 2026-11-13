@@ -58,7 +58,7 @@ export const codigo = {
     fragmentos: [
       S(CL, 'Dashboard', 'Carga /api/dashboard y arma la serie del embudo.', { desde: 'function Dashboard', hasta: 'const cards = [' }),
       S(CL, 'Dashboard', 'Gráfico de barras del embudo de conversión.', { desde: '<section className="panel chart-panel">', hasta: '</section>' }),
-      S(BP, 'BuyerDashboardCard', 'Tarjeta del KPI B-3.1 que enlaza con el panel de Buyers.'),
+      S('src/app/buyers/dashboard-card.tsx', 'BuyerDashboardCard', 'Tarjeta del KPI B-3.1 que enlaza con el panel de Buyers.'),
       R('GET', "path === 'dashboard'", 'Última instantánea del embudo, conteo actual por etapa, pendientes y alertas.')
     ]
   },
@@ -82,121 +82,6 @@ export const codigo = {
       S(RAD, 'sendInsight', 'Envío por el operador con comprobaciones de estado y reclamo atómico.', { omitir: [['const c = await contact(row.contactId)', 'const [claimed]']] }),
       R('POST', "path === 'radar/send'", 'Ruta que envía el borrador sugerido.')
     ]
-  },
-
-  // ---------------- D) Buyers ----------------
-  '06a-buyers-filtros-kpi.png': {
-    fragmentos: [
-      S(KPI, 'KPI_DEFS', 'Constante de umbrales de los seis KPI (única fuente de verdad del semáforo).'),
-      S(KPI, ['Umbral', 'semaforo'], 'Función de semáforo: los bordes pertenecen al estado mejor.'),
-      S(KPI, 'sumasVisitas', 'Consulta SQL al DataMart (hecho.ComportamientoVisita), parametrizada y agrupada.'),
-      S(KPI, 'costosPeriodo', 'B-1.2: costo del periodo (hecho.CostoCampana) por separado de los leads nuevos de campañas pagadas.'),
-      S(KPI, ['partes', 'construirKpi'], 'B-1.2 = costo del periodo / leads nuevos de campañas pagadas del periodo; denominador 0 da SIN_DATOS.'),
-      S(KPI, 'kpisQuerySchema', 'Validación zod de los filtros globales (fechas, canal, campaña, video).'),
-      S(EXT, ['PALABRAS_PROHIBIDAS', 'assertSoloLectura'], 'Guardián de solo lectura: solo SELECT/WITH, una sentencia, sin palabras de escritura.'),
-      S(EXT, 'queryExternal', 'Único punto de acceso al DataMart y al OLTP: valida, parametriza y limita el paralelismo.'),
-      R('GET', "path.startsWith('buyer/')", 'Rutas GET del agente Buyer (requieren SQL Server): KPI, curva, tiempo real, ejecuciones y propuestas.', { omitir: [["if (path === 'buyer/runs')", "if (path === 'buyer/abandonment')"]] }),
-      S(BP, 'BuyerPanel', 'Estado de los filtros globales y composición del panel.', { omitir: [['<div className="panel bp-filters"', '<KpiCards block={kpis} />']] }),
-      S(BP, ['estadoDe', 'thresholdText'], 'Semáforo en el cliente (misma regla del servidor) y texto de los umbrales.'),
-      S(BP, 'KpiCards', 'Tarjetas de KPI agrupadas por actividad con su semáforo.', { desde: 'function KpiCards', hasta: '<div className="bp-kpis">' })
-    ]
-  },
-  '06a-buyers-filtros-kpi-periodo-completo.png': {
-    fragmentos: [
-      S(BP, 'BuyerPanel', 'Los filtros Desde/Hasta construyen la consulta de /api/buyer/kpis; sin filtros se usa el periodo por defecto del servidor.', { desde: 'const qs = useMemo', hasta: 'const d = kpis.data' }),
-      S(KPI, ['periodoPorDefecto', 'periodoPorDefectoSinCache'], 'Periodo por defecto: del primer día del último mes con datos a la última fecha con hechos.'),
-      S(KPI, 'buyerKpis', 'Respuesta completa de GET buyer/kpis con caché por filtros y firma de la última carga del DataMart.')
-    ],
-    ver: 'Las consultas de los KPI se muestran en la Figura {06a-buyers-filtros-kpi.png}.'
-  },
-  '06c-buyers-desgloses-periodo-completo.png': {
-    fragmentos: [
-      S(KPI, 'agregar', 'Combina en memoria el hecho de visitas y el de costos por clave de grupo.')
-    ],
-    ver: 'El resto del código de esta opción se muestra en la Figura {06c-buyers-desgloses.png}.'
-  },
-  '06b-buyers-tendencia-abandono.png': {
-    fragmentos: [
-      S(KPI, 'buyerKpisSinCache', 'Tendencia: agregación mensual de los últimos 12 meses en serie.', { desde: 'const tendenciaDesde', hasta: 'const porVideo' }),
-      S(KPI, 'inicioMes', 'Cálculo del primer día de mes desplazado.'),
-      S(BP, 'TrendSection', 'Gráfico de línea de un KPI por mes.', { desde: 'function TrendSection', hasta: 'const m = Msg' }),
-      S(KPI, 'curvaAbandonoSinCache', 'Consulta al OLTP: máximo segundo alcanzado por reproducción en tramos del 10 % y conversión por tramo.'),
-      S(KPI, 'construirCurva', 'Función pura: curva de abandono y mayor caída.'),
-      S(BP, 'AbandonmentSection', 'Selección de video y petición de la curva.', { desde: 'function AbandonmentSection', hasta: 'const d = block.data' }),
-      R('GET', "path === 'buyer/abandonment'", 'Ruta de la curva de abandono de un video en el periodo.')
-    ]
-  },
-  '06c-buyers-desgloses.png': {
-    fragmentos: [
-      S(KPI, 'condiciones', 'Condiciones WHERE parametrizadas de los filtros globales.'),
-      S(KPI, 'agregar', 'Combina en memoria el hecho de visitas y el de costos por clave de grupo.'),
-      S(KPI, 'buyerKpisSinCache', 'Desgloses por canal y campaña (costo y costo por lead solo en campañas pagadas).', { desde: 'const global = await agregar', hasta: 'byVideo: [...porVideo' }),
-      S(BP, ['KpiCell'], 'Celda con el estado de semáforo de cada valor.'),
-      S(BP, 'BreakdownTables', 'Tabla de desglose por canal.', { desde: 'function BreakdownTables', hasta: '</table>' })
-    ]
-  },
-  '06d-buyers-tiempo-real.png': {
-    fragmentos: [
-      S(KPI, ['diaLima', 'actividadHoySinCache'], 'Actividad de hoy (hora de Lima) en el OLTP con consultas acotadas por fecha.'),
-      R('GET', "path === 'buyer/realtime'", 'Ruta de tiempo real: actividad de hoy y últimas notificaciones.'),
-      R('POST', "path === 'webhooks/inscripciones'", 'Webhook de inscripciones: valida el secreto compartido y el cuerpo antes de registrar.'),
-      S(WEB, ['inscripcionSchema', 'secretoValido'], 'Esquema del cuerpo (datos personales descartados) y comparación del secreto en tiempo constante.'),
-      S(WEB, 'registrarInscripcion', 'Registro idempotente por idFormulario, verificación en el OLTP y manejo de carrera.'),
-      S(BP, 'RealtimeSection', 'Panel con recarga por evento amp-live y cada 30 s.', { desde: 'function RealtimeSection', hasta: '<h4>Notificaciones' })
-    ]
-  },
-  '06e-buyers-agente.png': {
-    fragmentos: [
-      S(BP, 'AgentSection', 'Botones de generación B-1 y B-2: envían la actividad y las indicaciones opcionales.', { desde: 'function AgentSection', hasta: 'const list' }),
-      R('POST', "path === 'buyer/run'", 'Ruta que solicita una ejecución manual (responde 202).'),
-      S(BA, 'solicitudRunSchema', 'Validación zod de la solicitud (actividad, periodo, indicaciones de hasta 500 caracteres).'),
-      S(BA, 'requestRun', 'Crea la ejecución PENDING y encola el trabajo BUYER_RUN (con deduplicación).'),
-      S(JOBS, 'enqueue', 'Cola de trabajos: inserción con clave de deduplicación.'),
-      S(JOBS, 'processNextJob', 'Worker: reclamo atómico con arrendamiento (20 min para BUYER_RUN) y despacho del trabajo.', { desde: 'export async function processNextJob', hasta: 'if (!claimed) return true;' }),
-      S(JOBS, 'processNextJob', 'Despacho del trabajo BUYER_RUN: no tiene contacto, solo prepara borradores.', { desde: "if (candidate.kind === 'BUYER_RUN')", hasta: "else if (candidate.kind === 'LIFECYCLE')" }),
-      S(BA, ['buildContext', 'periodoAnteriorDe'], 'Construcción del contexto: consultas deterministas, sin IA.'),
-      S(BA, 'contextoB1', 'Contexto B-1: KPI del periodo y del anterior por canal y campaña.', { desde: 'export async function contextoB1', hasta: 'const campanas = actual' }),
-      S(BA, ['REGLAS_COMUNES', 'SYSTEM_B1', 'systemPrompt', 'construirPrompt'], 'Prompts: reglas obligatorias, formato JSON y contexto enviado como datos.'),
-      S(AI, 'generate', 'Llamada a la IA con el proveedor configurado (se muestra la rama de OpenAI y la de Anthropic).', { omitir: [["if (provider === 'GEMINI')", 'if (!process.env.ANTHROPIC_API_KEY']] })
-    ]
-  },
-  '06f-buyers-ejecucion-analisis.png': {
-    fragmentos: [
-      S(BA, 'executeRun', 'Ejecución idempotente: reclamo PENDING→RUNNING, contexto, IA con respaldo de plantillas y cierre atómico.', { omitir: [['Reclamo atómico', 'const fallar = async'], ['const fallar = async', 'const actividad = run.activity'], ['const ahora = new Date();', 'if (!escribio)']] }),
-      S(BA, 'procesarSalidaIa', 'JSON → zod → validadores → cobertura mínima.'),
-      S(BA, ['propuestaIaSchema', 'salidaIaSchema'], 'Esquemas zod de la salida de la IA (cada propuesta se valida por separado).'),
-      S(BA, 'extraerJson', 'Extracción tolerante del objeto JSON devuelto por la IA.'),
-      S(BA, 'scanBuyerSchedules', 'Programación: lunes semanal y alerta diaria de KPI en rojo (con claves de deduplicación).', { omitir: [['const db = tables();', 'return creadas;']] }),
-      S(BA, ['ejecucionAPlano', 'listarEjecuciones'], 'Lectura de las ejecuciones recientes.'),
-      R('GET', "path === 'buyer/runs'", 'Ruta de ejecuciones recientes.'),
-      S(BP, 'AgentSection', 'Lista de ejecuciones con proveedor, aviso de plantilla y análisis desplegable.', { desde: '<ul className="bp-runs">', hasta: '</li>' }),
-      S(JOBS, 'processNextJob', 'Tras tres intentos fallidos la ejecución queda FAILED.', { desde: "if (candidate.kind === 'BUYER_RUN' && attempts >= 3)", hasta: 'await event(' })
-    ]
-  },
-  '06g-buyers-propuestas.png': {
-    fragmentos: [
-      S(BA, ['REGLAS', 'detectarProhibidos'], 'Validador determinista: precios, descuentos, becas, promesas de ingreso y resultados inventados.', { omitir: [['regex:', 'regex:']] }),
-      S(BA, 'validarPropuestas', 'Valida cada propuesta: coherencia con la actividad, texto prohibido, pilares y evidencia.', { desde: 'export function validarPropuestas', hasta: 'const completada = exigirPilarYLlamado', omitir: [["if (actividad === 'B1') {", '// Texto prohibido']] }),
-      S(BA, ['completarCobertura', 'propuestasDePlantilla', 'analisisPlantilla'], 'Plantillas de respaldo y cobertura mínima cuando la IA falla o no alcanza.', { omitir: [['export function analisisPlantilla', 'return `Periodo']] }),
-      S(BA, ['filtroPropuestasSchema', 'listarPropuestas'], 'Lectura filtrada de la bandeja.'),
-      R('GET', "path === 'buyer/proposals'", 'Ruta de la bandeja de propuestas.'),
-      S(BP, 'ProposalsSection', 'Filtros y lista de propuestas con recarga en vivo.', { desde: 'function ProposalsSection', hasta: 'const m = Msg' })
-    ]
-  },
-  '06h-buyers-editar-propuesta.png': {
-    fragmentos: [
-      S(BP, 'Proposal', 'Decisión del operador y modo de edición «Editar y aprobar».', { desde: 'function Proposal(', hasta: 'const ev = evidenceLines' }),
-      S(BP, 'Proposal', 'Editor del texto final.', { desde: "{mode === 'edit' && (", hasta: 'Guardar y aprobar' }),
-      R('POST', "path === 'buyer/proposal/decide'", 'Ruta de decisión: 404 si no existe, 409 si ya fue decidida, 422 si el texto editado viola las reglas.'),
-      S(BA, ['decisionSchema', 'decidirPropuesta'], 'Aplica la decisión solo sobre borradores, revalida el texto editado y deja traza en eventos.')
-    ]
-  },
-  '06i-buyers-descartar-propuesta.png': {
-    fragmentos: [
-      S(BP, 'Proposal', 'Modo de descarte con motivo opcional.', { desde: "{mode === 'discard' && (", hasta: 'Confirmar descarte' }),
-      R('POST', "path === 'buyer/proposal/decide'", 'La misma ruta atiende el descarte (decision = DISCARDED).')
-    ],
-    ver: 'decisionSchema y decidirPropuesta se muestran en la Figura {06h-buyers-editar-propuesta.png}.'
   },
 
   // ---------------- E–H) Etapas ----------------
@@ -247,7 +132,7 @@ export const codigo = {
       R('POST', "path === 'agent/run'", 'Encola el trabajo AGENT (los Buyers no tienen agente conversacional).'),
       S(AG, 'runAgent', 'Trabajo AGENT: según la etapa prepara el ciclo de vida o ejecuta el agente IMPULSE.', { desde: 'if (isLifecycle(c.stage)) return prepareLifecycle', hasta: 'const recs = await recommend(c)' })
     ],
-    ver: 'La función enqueue se muestra en la Figura {06e-buyers-agente.png}.'
+    ver: 'La función enqueue se muestra en la Figura {06f-buyers-agente-ejecucion-vivo.png}.'
   },
   '11b-perfil-conversacion.png': {
     fragmentos: [
@@ -346,7 +231,7 @@ export const codigo = {
       R('POST', "path === 'settings'", 'Solo administración cambia el proveedor; queda un evento.'),
       S(AI, ['DEFAULT_OPENAI_MODEL', 'aiConfig'], 'Lectura de la configuración de IA (valor por defecto si no hay registro).')
     ],
-    ver: 'La función generate, que usa esta configuración, se muestra en la Figura {06e-buyers-agente.png}.'
+    ver: 'La función generate, que usa esta configuración, se muestra en la Figura {06f-buyers-agente-ejecucion-vivo.png}.'
   },
   '16b-configuracion-conexiones-seguimiento.png': {
     fragmentos: [
@@ -356,3 +241,4 @@ export const codigo = {
     ]
   }
 };
+export { S, R, A };

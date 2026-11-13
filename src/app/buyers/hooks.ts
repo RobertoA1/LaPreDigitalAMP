@@ -78,7 +78,8 @@ export const TABS = [
   { key: 'analisis', path: '/buyers/analisis', label: 'Análisis' },
   { key: 'agente', path: '/buyers/agente', label: 'Agente' },
   { key: 'propuestas', path: '/buyers/propuestas', label: 'Propuestas' },
-  { key: 'reglas', path: '/buyers/reglas', label: 'Reglas' }
+  { key: 'reglas', path: '/buyers/reglas', label: 'Reglas' },
+  { key: 'perfiles', path: '/buyers/perfiles', label: 'Perfiles' }
 ] as const;
 export type TabKey = (typeof TABS)[number]['key'];
 export const FILTER_KEYS = ['from', 'to', 'canal', 'campana', 'video'] as const;

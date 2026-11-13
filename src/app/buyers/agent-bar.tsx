@@ -128,21 +128,3 @@ function ActivityCard({ a, now, workerOn, loading, canChange, role, ocupado, onM
     </div>
   </article>;
 }
-
-/** Resumen mínimo del agente, siempre a la vista junto a las pestañas aunque se baje por la página. */
-export function MiniStatus() {
-  const { agent } = useBuyer();
-  const d: Obj | null = agent.data;
-  const now = useNow(!!d, 5000);
-  if (!d) return null;
-  const worker = workerEstado(d, now);
-  const activities: Obj[] = d.activities || [];
-  return <div className="bp-mini" role="status" aria-label="Resumen del agente">
-    <span><i className={`dot ${worker.alive ? 'on' : 'off'}`} aria-hidden="true" />Worker {worker.alive ? 'activo' : 'detenido'}</span>
-    {ACTIVIDADES.map(act => {
-      const a = activities.find(x => x.activity === act) || { mode: d.mode?.[act] || 'MANUAL', state: 'EN_REPOSO' };
-      const est = ESTADO_AGENTE[a.state] || ESTADO_AGENTE.EN_REPOSO;
-      return <span key={act}>{est.icon}<b>{act === 'B1' ? 'B-1' : 'B-2'}</b> {a.mode === 'AUTOMATICO' ? 'Automático (cada semana)' : 'Manual (al pulsar Ejecutar)'} · {est.label}</span>;
-    })}
-  </div>;
-}

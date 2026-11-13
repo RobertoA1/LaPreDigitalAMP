@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { Op } from 'sequelize';
 import { z } from 'zod';
 import { plain, plainMany, tables } from './db';
 import { event } from './contacts';
@@ -246,7 +247,7 @@ const medicion = (code: string, name: string, description: string, valor: unknow
 export const REGLAS_DE_FABRICA: readonly ReglaFabrica[] = [
   ...KPI_DEFS.map((def): ReglaFabrica => ({
     code: `SEM_${def.code}`, category: 'SEMAFORO', name: `Semáforo ${def.code}`, enabled: true, locked: false, origin: 'SISTEMA', params: { ...def.thresholds },
-    description: `Niveles de «${def.name}». ${def.thresholds.direction === 'HIGHER_BETTER' ? 'Mayor es mejor: rojo por debajo de yellow, verde desde green.' : 'Menor es mejor: rojo por encima de yellow, verde hasta green.'}`
+    description: `Niveles de «${def.name}». ${def.thresholds.direction === 'HIGHER_BETTER' ? 'Mayor es mejor: rojo por debajo del nivel amarillo y verde desde el nivel verde.' : 'Menor es mejor: rojo por encima del nivel amarillo y verde hasta el nivel verde.'}`
   })),
   medicion('MED_ZONA_HORARIA', 'Zona horaria', 'Todas las fechas y horas se miden en la hora de Lima (UTC−5, sin horario de verano).', 'America/Lima (UTC−5)'),
   medicion('MED_MITAD_VIDEO', 'Mitad del video', 'Una reproducción llegó a la mitad cuando alcanza al menos el 50 % de la duración del video.', 50),
@@ -469,12 +470,27 @@ export async function listarReglas() {
   };
 }
 
-/** Últimos cambios de reglas (de `amp_events`, tipo `BUYER_RULE_CHANGE`). */
-export async function historialReglas(limite = 50) {
-  const filas = plainMany<any>(await tables().amp_events.findAll({ where: { type: 'BUYER_RULE_CHANGE' }, order: [['id', 'DESC']], limit: limite }));
+/**
+ * Historial de cambios de reglas (de `amp_events`, tipo `BUYER_RULE_CHANGE`): cuándo, quién, qué regla y el valor anterior y el nuevo.
+ * Con `ruleId` solo los de esa regla. Máximo 50.
+ */
+export async function historialReglas(limite = 50, ruleId?: number) {
+  const where: Record<string, unknown> = { type: 'BUYER_RULE_CHANGE' };
+  if (ruleId) where.detail = { [Op.like]: `%"ruleId":${Math.trunc(ruleId)},%` };
+  const filas = plainMany<any>(await tables().amp_events.findAll({ where, order: [['id', 'DESC']], limit: Math.min(Math.max(1, limite), 50) }));
   const nombres = await nombresDeUsuarios();
-  return filas.map(f => ({ id: f.id, at: iso(f.createdAt), actorId: f.actorId ?? null, actorName: f.actorId ? nombres.get(String(f.actorId)) ?? null : null, summary: f.summary, detail: analizar(f.detail) }));
+  return filas.map(f => {
+    const detalle = analizar(f.detail) as Record<string, any>;
+    return {
+      id: f.id, at: iso(f.createdAt), actorId: f.actorId ?? null, actorName: f.actorId ? nombres.get(String(f.actorId)) ?? null : null, summary: f.summary,
+      ruleId: detalle.ruleId ?? null, code: detalle.code ?? null, category: detalle.category ?? null, action: detalle.action ?? null, before: detalle.before ?? null, after: detalle.after ?? null, detail: detalle
+    };
+  });
 }
+export const historialQuerySchema = z.object({
+  ruleId: z.preprocess(v => (v === '' ? undefined : v), z.coerce.number().int().positive().optional()),
+  limit: z.preprocess(v => (v === '' ? undefined : v), z.coerce.number().int().min(1).max(50).default(50))
+});
 
 // ---------------------------------------------------------------------------
 // Escritura

@@ -21,7 +21,8 @@ import { abandonmentQuerySchema, actividadHoy, buyerKpis, curvaAbandono, kpisQue
 import { inscripcionSchema, registrarInscripcion, secretoValido, ultimasNotificaciones } from '@/lib/buyer-webhook';
 import { decidirPropuesta, decidirVarias, decisionMultipleSchema, decisionSchema, filtroPropuestasSchema, listarEjecuciones, listarPropuestas, requestRun, solicitudRunSchema } from '@/lib/buyer-agent';
 import { cambiarModo, cambiarModoSchema, estadoAgente, reconocerAviso, reconocerAvisoSchema } from '@/lib/buyer-auto';
-import { ReglaError, eliminarRegla, eliminarReglaSchema, guardarRegla, guardarReglaSchema, listarReglas, restaurarRegla, restaurarReglaSchema, restaurarTodas } from '@/lib/buyer-rules';
+import { ReglaError, historialQuerySchema, historialReglas, eliminarRegla, eliminarReglaSchema, guardarRegla, guardarReglaSchema, listarReglas, restaurarRegla, restaurarReglaSchema, restaurarTodas } from '@/lib/buyer-rules';
+import { filtroPerfilesSchema, listarPerfiles, perfilDeFormulario, perfilQuerySchema } from '@/lib/buyer-profiles';
 import { suscribirLive } from '@/lib/live';
 import { ConsultaExternaTimeout, esTiempoAgotado, MENSAJE_REQUIERE_SQLSERVER, sqlServerDisponible } from '@/lib/external';
 
@@ -150,6 +151,16 @@ export async function GET(req: NextRequest, context: { params: Promise<{ path: s
       const consulta = Object.fromEntries(req.nextUrl.searchParams.entries());
       if (path === 'buyer/runs') return ok({ runs: await listarEjecuciones(50) });
       if (path === 'buyer/agent') return ok({ ...(await estadoAgente()), canChangeMode: canApprove(user.role) });
+      if (path === 'buyer/profiles') return ok(await listarPerfiles(filtroPerfilesSchema.parse(consulta)));
+      if (path === 'buyer/profile') {
+        const { formulario } = perfilQuerySchema.parse(consulta);
+        const perfil = await perfilDeFormulario(formulario);
+        if (!perfil) return fail('Perfil no encontrado', 404);
+        // Auditoría de la apertura del detalle: usuario e id del formulario, sin datos personales.
+        await event(null, 'BUYER_PROFILE_VIEW', `Se abrió el perfil del formulario #${formulario}.`, 'OPERATOR', String(user.id), { formId: formulario });
+        return ok(perfil);
+      }
+      if (path === 'buyer/rules/history') { const q = historialQuerySchema.parse(consulta); return ok({ history: await historialReglas(q.limit, q.ruleId) }); }
       if (path === 'buyer/rules') return ok({ canEdit: canApprove(user.role), ...(await listarReglas()) });
       if (path === 'buyer/proposals') return ok(await listarPropuestas(filtroPropuestasSchema.parse(consulta)));
       if (path === 'buyer/kpis') return ok(await buyerKpis(kpisQuerySchema.parse(consulta)));
