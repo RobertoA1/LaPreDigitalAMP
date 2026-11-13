@@ -8,10 +8,49 @@ import { Dialog, Empty, Msg, Section, Spinner, StaleNote, Tag } from './ui';
 
 const KINDS: Record<string, string> = { PUBLICACION: 'Publicación', GUION: 'Guion', LLAMADO: 'Llamado al formulario', RECOMENDACION: 'Recomendación' };
 const ESTADOS: Record<string, [string, string]> = { DRAFT: ['Borrador', 'orange'], APPROVED: ['Aprobada', 'teal'], DISCARDED: ['Descartada', 'neutral'] };
+const TIPOS_RECOMENDACION: Record<string, string> = {
+  DURACION: 'Duración del video',
+  ORDEN_BENEFICIOS: 'Orden de beneficios',
+  MENSAJE_FINAL: 'Mensaje final',
+  ATRIBUCION: 'Atribución'
+};
+const TIPOS_CAMPANA: Record<string, string> = { PAGADA: 'Anuncio pagado', ORGANICA: 'Publicación orgánica' };
+const NOMBRES_KPI: Record<string, string> = {
+  'B-1.1': 'Cobertura de atribución a campañas',
+  'B-1.2': 'Costo por LEAD nuevo por campaña',
+  'B-2.1': 'Visualización completa',
+  'B-2.2': 'Avance al 50 %',
+  'B-2.3': 'Conversión a LEAD tras el 50 %',
+  'B-3.1': 'Conversión a LEADS'
+};
 const MAX_LOTE = 50;
 
 type Filtro = { status: string; activity: string; kind: string; audience: string; channel: string; q: string; page: number; pageSize: number };
 const FILTRO0: Filtro = { status: 'DRAFT', activity: '', kind: '', audience: '', channel: '', q: '', page: 1, pageSize: 20 };
+
+function seccionesPublicacion(content: string): Array<{ label: string; value: string }> | null {
+  const regex = /^(Gancho|Texto|Llamado|Formato):[ \t]*/gim;
+  const matches: Array<{ label: string; start: number; header: number }> = [];
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(content)) !== null) {
+    matches.push({ label: match[1], start: match.index + match[0].length, header: match.index });
+  }
+  if (!matches.length || content.slice(0, matches[0].header).trim()) return null;
+  return matches.map((section, index) => ({
+    label: section.label,
+    value: content.slice(section.start, matches[index + 1]?.header ?? content.length).trim()
+  })).filter(section => section.value.length > 0);
+}
+
+function ContenidoPublicacion({ content, className }: { content: string; className: string }) {
+  const sections = seccionesPublicacion(content);
+  if (!sections) return <p className={className}>{content}</p>;
+  return <div className="bp-publication-fields">
+    {sections.map((section, index) => <section key={`${section.label}-${index}`} className="bp-publication-field">
+      <b>{section.label}</b><p className={className}>{section.value}</p>
+    </section>)}
+  </div>;
+}
 
 export default function TabPropuestas() {
   const { search, setFilters, toast, agent } = useBuyer();
@@ -135,7 +174,14 @@ function Card({ p, marcada, onMarcar, onDone }: { p: Obj; marcada: boolean; onMa
   const [ocupado, setOcupado] = useState(false);
   const [st, tone] = ESTADOS[p.status] || [p.status, 'light'];
   const ev = evidenceLines(p.evidence);
+  const kpisCitados = [...new Set(ev.flatMap(line => line.match(/\bB-[123]\.\d\b/g) || []))]
+    .filter(code => NOMBRES_KPI[code]);
   const borrador = p.status === 'DRAFT';
+  const ayudaEstado = p.status === 'DRAFT'
+    ? 'Propuesta generada; nadie la ha revisado todavía.'
+    : p.status === 'APPROVED'
+      ? 'Revisada por una persona; aún hay que publicarla manualmente.'
+      : null;
 
   async function decidir(decision: 'APPROVED' | 'DISCARDED', extra: Obj = {}) {
     setOcupado(true);
@@ -148,16 +194,19 @@ function Card({ p, marcada, onMarcar, onDone }: { p: Obj; marcada: boolean; onMa
       <div className="bp-prop-main">
         <div className="bp-prop-tags"><Tag tone={tone}>{st}</Tag><Tag tone="purple">{KINDS[p.kind] || p.kind}</Tag><Tag>{p.activity === 'B1' ? 'B-1' : 'B-2'}</Tag>
           {p.audience && <Tag>{PUBLICOS[p.audience] || p.audience}</Tag>}{p.channel && <Tag>{p.channel}</Tag>}
-          {p.campaignType && <Tag>{p.campaignType === 'PAGADA' ? 'Pagada' : 'Orgánica'}</Tag>}{p.recommendationType && <Tag>{p.recommendationType}</Tag>}
+          {p.campaignType && <Tag>{TIPOS_CAMPANA[p.campaignType] || p.campaignType}</Tag>}
+          {p.recommendationType && <Tag>{TIPOS_RECOMENDACION[p.recommendationType] || p.recommendationType}</Tag>}
           {p.editedContent && <Tag tone="teal">Editada</Tag>}<span className="bp-prop-id">#{p.id}{p.runId ? ` · ejecución #${p.runId}` : ''}</span></div>
         <h4>{p.title}</h4>
-        {!abierta && <p className="bp-prop-preview">{shown}</p>}
+        {ayudaEstado && <small className="muted">{ayudaEstado}</small>}
+        {!abierta && <ContenidoPublicacion content={shown} className="bp-prop-preview" />}
       </div>
       <button className="button secondary bp-icon-btn" aria-expanded={abierta} aria-label={abierta ? 'Contraer propuesta' : 'Ver contenido completo'} onClick={() => setAbierta(a => !a)}>{abierta ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</button>
     </div>
     {abierta && <div className="bp-prop-body">
-      <p className="bp-pre">{shown}</p>
+      <ContenidoPublicacion content={shown} className="bp-pre" />
       {p.rationale && <p className="bp-rationale"><b>Justificación:</b> {p.rationale}</p>}
+      {kpisCitados.length > 0 && <div className="bp-evidence"><b>KPI citado</b><ul>{kpisCitados.map(code => <li key={code}><b>{code}</b> · {NOMBRES_KPI[code]}</li>)}</ul></div>}
       {ev.length > 0 && <div className="bp-evidence"><b>Evidencia</b><ul>{ev.map((l, i) => <li key={i}>{l}</li>)}</ul></div>}
       {!borrador && <small className="muted">{p.status === 'APPROVED' ? 'Aprobada' : 'Descartada'}{p.decidedBy ? ` por ${p.decidedBy}` : ''}{p.decidedAt ? ` · ${lima(p.decidedAt, true)}` : ''}{p.decisionReason ? ` · ${p.decisionReason}` : ''}</small>}
     </div>}
