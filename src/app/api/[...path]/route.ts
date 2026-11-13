@@ -19,13 +19,17 @@ import { isLifecycle } from '@/lib/lifecycle-policy';
 import { planCapabilities } from '@/lib/catalog';
 import { abandonmentQuerySchema, actividadHoy, buyerKpis, curvaAbandono, kpisQuerySchema, periodoPorDefecto } from '@/lib/buyer-kpis';
 import { inscripcionSchema, registrarInscripcion, secretoValido, ultimasNotificaciones } from '@/lib/buyer-webhook';
-import { decidirPropuesta, decisionSchema, filtroPropuestasSchema, listarEjecuciones, listarPropuestas, requestRun, solicitudRunSchema } from '@/lib/buyer-agent';
+import { decidirPropuesta, decidirVarias, decisionMultipleSchema, decisionSchema, filtroPropuestasSchema, listarEjecuciones, listarPropuestas, requestRun, solicitudRunSchema } from '@/lib/buyer-agent';
+import { cambiarModo, cambiarModoSchema, estadoAgente, reconocerAviso, reconocerAvisoSchema } from '@/lib/buyer-auto';
+import { ReglaError, eliminarRegla, eliminarReglaSchema, guardarRegla, guardarReglaSchema, listarReglas, restaurarRegla, restaurarReglaSchema, restaurarTodas } from '@/lib/buyer-rules';
 import { suscribirLive } from '@/lib/live';
 import { ConsultaExternaTimeout, esTiempoAgotado, MENSAJE_REQUIERE_SQLSERVER, sqlServerDisponible } from '@/lib/external';
 
 export const runtime = 'nodejs';
 const fail = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const ok = (data: unknown, status = 200) => NextResponse.json(data, { status });
+/** Error de reglas del agente Buyer: 403/404/409/422 con `{ error, issues[] }`. */
+const falloRegla = (error: ReglaError) => NextResponse.json({ error: error.message, issues: error.issues }, { status: error.status });
 function requireSameOrigin(req: NextRequest) {
   const origin = req.headers.get('origin');
   if (origin && new URL(origin).host !== req.headers.get('host')) throw new Error('Origen no permitido');
@@ -145,7 +149,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ path: s
       if (!sqlServerDisponible()) return fail(MENSAJE_REQUIERE_SQLSERVER, 503);
       const consulta = Object.fromEntries(req.nextUrl.searchParams.entries());
       if (path === 'buyer/runs') return ok({ runs: await listarEjecuciones(50) });
-      if (path === 'buyer/proposals') return ok({ proposals: await listarPropuestas(filtroPropuestasSchema.parse(consulta)) });
+      if (path === 'buyer/agent') return ok({ ...(await estadoAgente()), canChangeMode: canApprove(user.role) });
+      if (path === 'buyer/rules') return ok({ canEdit: canApprove(user.role), ...(await listarReglas()) });
+      if (path === 'buyer/proposals') return ok(await listarPropuestas(filtroPropuestasSchema.parse(consulta)));
       if (path === 'buyer/kpis') return ok(await buyerKpis(kpisQuerySchema.parse(consulta)));
       if (path === 'buyer/realtime') return ok({ now: new Date().toISOString(), ...(await actividadHoy()), notifications: await ultimasNotificaciones(20) });
       if (path === 'buyer/abandonment') {
@@ -158,6 +164,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ path: s
     }
     return fail('Ruta no encontrada', 404);
   } catch (error) {
+    if (error instanceof ReglaError) return falloRegla(error);
     if (error instanceof z.ZodError) return fail(error.issues.map(issue => issue.message).join('; '));
     if (error instanceof ConsultaExternaTimeout || esTiempoAgotado(error)) return fail(error instanceof ConsultaExternaTimeout ? error.message : 'La base de datos tardó demasiado en responder. Intenta de nuevo en unos minutos.', 504);
     console.error(error);
@@ -225,6 +232,30 @@ export async function POST(req: NextRequest, context: { params: Promise<{ path: 
       if (!result) return fail('Propuesta no encontrada', 404);
       if (result === 'YA_DECIDIDA') return fail('Solo se pueden decidir propuestas en borrador (DRAFT)', 409);
       return ok({ proposal: result });
+    }
+    if (path === 'buyer/agent/mode') {
+      if (!sqlServerDisponible()) return fail(MENSAJE_REQUIERE_SQLSERVER, 503);
+      const data = cambiarModoSchema.parse(await body(req));
+      if (!canApprove(user.role)) return fail('Solo administración o alta dirección pueden cambiar el modo del agente', 403);
+      return ok({ mode: await cambiarModo(data.activity, data.mode, String(user.id)) });
+    }
+    if (path === 'buyer/alert/ack') {
+      if (!sqlServerDisponible()) return fail(MENSAJE_REQUIERE_SQLSERVER, 503);
+      const data = reconocerAvisoSchema.parse(await body(req));
+      return ok({ alert: await reconocerAviso(data.id, String(user.id)) });
+    }
+    if (path === 'buyer/rule/save' || path === 'buyer/rule/delete' || path === 'buyer/rule/restore') {
+      if (!sqlServerDisponible()) return fail(MENSAJE_REQUIERE_SQLSERVER, 503);
+      const cuerpo = await body(req);
+      const datos = path === 'buyer/rule/save' ? guardarReglaSchema.parse(cuerpo) : path === 'buyer/rule/delete' ? eliminarReglaSchema.parse(cuerpo) : restaurarReglaSchema.parse(cuerpo);
+      if (!canApprove(user.role)) return fail('Solo administración o alta dirección pueden crear, modificar, eliminar o restaurar reglas', 403);
+      if (path === 'buyer/rule/save') return ok({ rule: await guardarRegla(datos as z.infer<typeof guardarReglaSchema>, String(user.id)) });
+      if (path === 'buyer/rule/delete') return ok(await eliminarRegla((datos as z.infer<typeof eliminarReglaSchema>).id, String(user.id)));
+      return ok('all' in datos ? await restaurarTodas(String(user.id)) : await restaurarRegla((datos as { id: number }).id, String(user.id)));
+    }
+    if (path === 'buyer/proposals/decide-many') {
+      if (!sqlServerDisponible()) return fail(MENSAJE_REQUIERE_SQLSERVER, 503);
+      return ok(await decidirVarias(decisionMultipleSchema.parse(await body(req)), String(user.id)));
     }
     if (path === 'lifecycle/resolve') {
       const data = z.object({ contactId: z.number().int().positive(), reason: z.string().trim().min(10).max(1000) }).parse(await body(req));
@@ -371,6 +402,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ path: 
     }
     return fail('Ruta no encontrada', 404);
   } catch (error) {
+    if (error instanceof ReglaError) return falloRegla(error);
     if (error instanceof z.ZodError) return fail(error.issues.map(issue => issue.message).join('; '));
     if (error instanceof ConsultaExternaTimeout || esTiempoAgotado(error)) return fail(error instanceof ConsultaExternaTimeout ? error.message : 'La base de datos tardó demasiado en responder. Intenta de nuevo en unos minutos.', 504);
     console.error(error);

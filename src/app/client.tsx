@@ -5,7 +5,8 @@ import { Activity, ArrowRight, Bell, BookOpen, CalendarDays, Check, ChevronRight
 import type { User, Stage, Contact, Channel } from '@/lib/types';
 import { agents, labels, stages } from '@/lib/types';
 import LifecyclePanel from './lifecycle-panel';
-import BuyerPanel, { BuyerDashboardCard } from './buyer-panel';
+import BuyerPanel from './buyers/panel';
+import BuyerDashboardCard from './buyers/dashboard-card';
 
 type Obj = Record<string, any>;
 async function api(path: string, options?: RequestInit) {
@@ -49,10 +50,10 @@ export default function App({ user, slug }: { user: User; slug: string[] }) {
   const key = slug[0] || 'dashboard';
   const stage = ({ buyers: 'BUYER', leads: 'LEAD', payers: 'PAYER', customers: 'CUSTOMER', turned: 'TURNED' } as Record<string, Stage>)[key];
   const title = key === 'dashboard' ? 'Dashboard' : stage === 'BUYER' ? 'Buyers · Agente de conversión' : stage ? labels[stage] : ({ contact: 'Perfil del contacto', radar: 'Radar de conversaciones', approvals: 'Aprobaciones', campaigns: 'Campañas', exams: 'Exámenes de admisión', settings: 'Configuración', jobs: 'Trabajos del servidor' } as Record<string, string>)[key] || 'Página no encontrada';
-  const subtitle = key === 'dashboard' ? 'Una vista clara de lo que ocurre en todo el embudo.' : stage === 'BUYER' ? 'KPI, curva de abandono y propuestas del agente de conversión Buyer → Lead.' : stage ? `Gestiona oportunidades y acciones del ${agents[stage].toLowerCase()}.` : 'Control operativo y trazabilidad de LaPreDigital AMP.';
+  const subtitle = key === 'dashboard' ? 'Una vista clara de lo que ocurre en todo el embudo.' : stage === 'BUYER' ? 'Estado del agente, KPI, propuestas y reglas de negocio del agente de conversión Buyer → Lead.' : stage ? `Gestiona oportunidades y acciones del ${agents[stage].toLowerCase()}.` : 'Control operativo y trazabilidad de LaPreDigital AMP.';
   const [demo, setDemo] = useState(false), [live, setLive] = useState(false);
   useEffect(() => { api('me').then(data => setDemo(data.demo)).catch(() => {}); const stream = new EventSource('/api/live'); stream.onopen = () => setLive(true); stream.onmessage = () => window.dispatchEvent(new Event('amp-live')); stream.onerror = () => setLive(false); return () => stream.close(); }, []);
-  return <div className="app"><Sidebar user={user} slug={slug}/><div className="content"><Header title={title} subtitle={subtitle} user={user} demo={demo} live={live}/><main className="main">{key === 'dashboard' ? <Dashboard/> : key === 'radar' ? <RadarPage/> : stage === 'BUYER' ? <BuyerPanel/> : stage ? <StagePage stage={stage}/> : key === 'contact' ? <ContactPage id={Number(slug[1])} demo={demo}/> : key === 'approvals' ? <ApprovalsPage/> : key === 'campaigns' ? <CampaignsPage user={user}/> : key === 'exams' ? <ExamsPage user={user}/> : key === 'settings' ? <SettingsPage user={user}/> : key === 'jobs' ? <JobsPage/> : <Empty message="No se encontró la página"/>}</main></div></div>;
+  return <div className="app"><Sidebar user={user} slug={slug}/><div className="content"><Header title={title} subtitle={subtitle} user={user} demo={demo} live={live}/><main className="main">{key === 'dashboard' ? <Dashboard/> : key === 'radar' ? <RadarPage/> : stage === 'BUYER' ? <BuyerPanel role={user.role}/> : stage ? <StagePage stage={stage}/> : key === 'contact' ? <ContactPage id={Number(slug[1])} demo={demo}/> : key === 'approvals' ? <ApprovalsPage/> : key === 'campaigns' ? <CampaignsPage user={user}/> : key === 'exams' ? <ExamsPage user={user}/> : key === 'settings' ? <SettingsPage user={user}/> : key === 'jobs' ? <JobsPage/> : <Empty message="No se encontró la página"/>}</main></div></div>;
 }
 function Dashboard() {
   const { data, error } = useData('dashboard');

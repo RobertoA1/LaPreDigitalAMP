@@ -1,6 +1,7 @@
 import { DataTypes, type ModelAttributes } from 'sequelize';
 import { crearConexionMssql, getDb } from '../src/lib/db';
 import { specs } from '../src/lib/schema';
+import { sembrarReglas } from '../src/lib/buyer-rules';
 
 /** Sequelize anota `field` en las definiciones y las constantes del esquema se comparten entre columnas y tablas: sin clonar y quitar `field`, las columnas se renombran o se pierden. */
 function clonar(attributes: ModelAttributes): ModelAttributes {
@@ -112,6 +113,47 @@ async function main() {
     }
     await db.query('INSERT INTO amp_migrations (name, appliedAt) VALUES (:name, :appliedAt)', { replacements: { name: ninth, appliedAt: new Date() } });
     console.log(`Migración aplicada: ${ninth}`);
+  }
+  const tenth = '010_buyer_rules';
+  if (!done.has(tenth)) {
+    // Reglas de negocio variables y avisos de alerta. Idempotente: crea cada tabla/índice solo si falta y la siembra no toca reglas existentes.
+    const existentes = new Set((await qi.showAllTables()).map(table => String(typeof table === 'string' ? table : (table as any).tableName).toLowerCase()));
+    for (const table of ['amp_buyer_rules', 'amp_buyer_alerts']) if (!existentes.has(table)) await qi.createTable(table, clonar(specs[table]));
+    const indices = (tabla: string) => qi.showIndex(tabla).then(lista => new Set((lista as any[]).map(i => String(i.name).toLowerCase())));
+    const deRegla = await indices('amp_buyer_rules');
+    if (!deRegla.has('amp_buyer_rules_category')) await qi.addIndex('amp_buyer_rules', ['category'], { name: 'amp_buyer_rules_category' });
+    const deAviso = await indices('amp_buyer_alerts');
+    if (!deAviso.has('amp_buyer_alerts_rule_day')) await qi.addIndex('amp_buyer_alerts', ['ruleId', 'dayKey'], { name: 'amp_buyer_alerts_rule_day', unique: true });
+    if (!deAviso.has('amp_buyer_alerts_created')) await qi.addIndex('amp_buyer_alerts', ['createdAt'], { name: 'amp_buyer_alerts_created' });
+    const creadas = await sembrarReglas();
+    await db.query('INSERT INTO amp_migrations (name, appliedAt) VALUES (:name, :appliedAt)', { replacements: { name: tenth, appliedAt: new Date() } });
+    console.log(`Migración aplicada: ${tenth} (${creadas} reglas de sistema sembradas)`);
+  }
+  const eleventh = '011_buyer_run_progress';
+  if (!done.has(eleventh)) {
+    // Progreso visible de la ejecución: solo se AÑADEN las columnas que falten (nullables; nada se borra).
+    const actuales = await qi.describeTable('amp_buyer_runs');
+    for (const column of ['step', 'stepStartedAt', 'log', 'updatedAt']) {
+      if (column in actuales) continue;
+      await qi.addColumn('amp_buyer_runs', column, { ...(clonar({ x: specs.amp_buyer_runs[column] }).x as object), allowNull: true } as any);
+      console.log(`Columna añadida: amp_buyer_runs.${column}`);
+    }
+    await db.query('INSERT INTO amp_migrations (name, appliedAt) VALUES (:name, :appliedAt)', { replacements: { name: eleventh, appliedAt: new Date() } });
+    console.log(`Migración aplicada: ${eleventh}`);
+  }
+  const twelfth = '012_settings_created_at_default';
+  if (!done.has(twelfth)) {
+    // Causa: en bases creadas antes de la corrección del esquema compartido, amp_settings conserva una columna `createdAt` NOT NULL sin valor por defecto
+    // (el modelo la llama updatedAt), y todo INSERT de un ajuste (ai, followup, buyer_agent, worker_heartbeat) fallaba. Solo se añade el DEFAULT: no cambia ni borra datos.
+    if (db.getDialect() === 'mssql') {
+      const [columnas] = await db.query("SELECT COLUMN_DEFAULT AS valor FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'amp_settings' AND COLUMN_NAME = 'createdAt'");
+      if ((columnas as any[]).length && !(columnas as any[])[0].valor) {
+        await db.query('ALTER TABLE amp_settings ADD CONSTRAINT DF_amp_settings_createdAt DEFAULT SYSDATETIMEOFFSET() FOR createdAt');
+        console.log('Valor por defecto añadido: amp_settings.createdAt');
+      }
+    }
+    await db.query('INSERT INTO amp_migrations (name, appliedAt) VALUES (:name, :appliedAt)', { replacements: { name: twelfth, appliedAt: new Date() } });
+    console.log(`Migración aplicada: ${twelfth}`);
   }
   await db.close();
 }

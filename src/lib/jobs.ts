@@ -11,7 +11,7 @@ import type { Contact, Channel } from './types';
 import { assessPayerOnboarding, shouldSendRenewalNotice } from './stage-agents';
 import { isLifecycle, recoveryWindow, reactivated, reactivationAttributionWindow } from './lifecycle-policy';
 import { lifecycleAutomaticBlock, prepareLifecycle } from './lifecycle';
-import { executeRun, scanBuyerSchedules } from './buyer-agent';
+import { executeRun } from './buyer-agent';
 
 export async function enqueue(kind: string, contactId: number | null, payload: object = {}, runAt = new Date(), dedupeKey?: string) {
   const db = tables();
@@ -220,7 +220,7 @@ if (c && c.renewalAt && shouldSendRenewalNotice(c, payload.expectedRenewalAt) &&
     await db.amp_jobs.update({ status: attempts >= 3 ? 'FAILED' : 'PENDING', runAt: new Date(Date.now() + attempts * 60_000), leaseUntil: null, lastError: String(error) }, { where: { id: candidate.id } });
     if (candidate.kind === 'BUYER_RUN' && attempts >= 3) {
       const runId = Number(JSON.parse(candidate.payload || '{}').runId);
-      if (runId) await db.amp_buyer_runs.update({ status: 'FAILED', error: String(error).slice(0, 4000), finishedAt: new Date() }, { where: { id: runId, status: { [Op.in]: ['PENDING', 'RUNNING'] } } });
+      if (runId) await db.amp_buyer_runs.update({ status: 'FAILED', error: String(error).slice(0, 4000), finishedAt: new Date(), step: 'FIN', stepStartedAt: new Date(), updatedAt: new Date() }, { where: { id: runId, status: { [Op.in]: ['PENDING', 'RUNNING'] } } });
     }
     await event(candidate.contactId, 'JOB_ERROR', `Trabajo ${candidate.kind}: ${String(error)}`, 'SYSTEM', 'worker');
   }

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { datamart, oltp, queryExternal, type Parametros } from './external';
+import { KPI_DEFS, REGLAS_FABRICA, reglasVigentes, semaforo, type Estado, type KpiCode, type KpiDef, type ReglasVigentes, type Umbral, type Actividad } from './buyer-rules';
 
 /**
  * KPI del Agente de conversión Buyer → Lead (spec §3).
@@ -12,35 +13,8 @@ import { datamart, oltp, queryExternal, type Parametros } from './external';
 // Umbrales y semáforos (única fuente de verdad)
 // ---------------------------------------------------------------------------
 
-export type KpiCode = 'B-1.1' | 'B-1.2' | 'B-2.1' | 'B-2.2' | 'B-2.3' | 'B-3.1';
-export type Estado = 'ROJO' | 'AMARILLO' | 'VERDE' | 'SIN_DATOS';
-export type Actividad = 'B1' | 'B2' | 'B3';
-/**
- * HIGHER_BETTER: ROJO si valor < yellow; VERDE si valor >= green; AMARILLO entre ambos.
- * LOWER_BETTER:  ROJO si valor > yellow; VERDE si valor <= green; AMARILLO entre ambos.
- */
-export type Umbral = { direction: 'HIGHER_BETTER' | 'LOWER_BETTER'; yellow: number; green: number };
-export type KpiDef = { code: KpiCode; name: string; activity: Actividad; unit: '%' | 'S/'; thresholds: Umbral };
-
-export const KPI_DEFS: readonly KpiDef[] = [
-  { code: 'B-1.1', name: 'Cobertura de atribución a campañas', activity: 'B1', unit: '%', thresholds: { direction: 'HIGHER_BETTER', yellow: 60, green: 80 } },
-  { code: 'B-1.2', name: 'Costo por LEADs nuevos por campaña (S/)', activity: 'B1', unit: 'S/', thresholds: { direction: 'LOWER_BETTER', yellow: 15, green: 8 } },
-  { code: 'B-2.1', name: 'Tasa de visualización completa', activity: 'B2', unit: '%', thresholds: { direction: 'HIGHER_BETTER', yellow: 30, green: 60 } },
-  { code: 'B-2.2', name: 'Tasa de avance al 50 %', activity: 'B2', unit: '%', thresholds: { direction: 'HIGHER_BETTER', yellow: 50, green: 75 } },
-  { code: 'B-2.3', name: 'Conversión a LEAD tras el 50 %', activity: 'B2', unit: '%', thresholds: { direction: 'HIGHER_BETTER', yellow: 5, green: 12 } },
-  { code: 'B-3.1', name: 'Tasa de conversión a LEADS', activity: 'B3', unit: '%', thresholds: { direction: 'HIGHER_BETTER', yellow: 3, green: 8 } }
-];
-export const KPI_CODES = KPI_DEFS.map(def => def.code);
-
-/** Semáforo de un KPI. `null`/no finito → SIN_DATOS. Los bordes pertenecen al estado mejor (60 % → AMARILLO, 80 % → VERDE; S/ 8 → VERDE, S/ 15 → AMARILLO). */
-export function semaforo(code: KpiCode | string, value: number | null | undefined): Estado {
-  const def = KPI_DEFS.find(item => item.code === code);
-  if (!def) throw new Error(`KPI desconocido: ${code}`);
-  if (value == null || !Number.isFinite(value)) return 'SIN_DATOS';
-  const { direction, yellow, green } = def.thresholds;
-  if (direction === 'HIGHER_BETTER') return value < yellow ? 'ROJO' : value >= green ? 'VERDE' : 'AMARILLO';
-  return value > yellow ? 'ROJO' : value <= green ? 'VERDE' : 'AMARILLO';
-}
+export { KPI_DEFS, KPI_CODES, semaforo } from './buyer-rules';
+export type { KpiCode, Estado, Actividad, Umbral, KpiDef } from './buyer-rules';
 
 // ---------------------------------------------------------------------------
 // Filtros y validación de parámetros
@@ -239,11 +213,11 @@ function partes(code: KpiCode, s: Sumas): [number, number] {
   }
 }
 /** Construye un KPI desde numerador y denominador (denominador 0 → valor null y SIN_DATOS). */
-export function construirKpi(def: KpiDef, numerador: number, denominador: number): KpiResultado {
+export function construirKpi(def: KpiDef, numerador: number, denominador: number, reglas: ReglasVigentes = REGLAS_FABRICA): KpiResultado {
   const valor = denominador > 0 ? redondear(def.unit === '%' ? (numerador / denominador) * 100 : numerador / denominador) : null;
-  return { code: def.code, name: def.name, activity: def.activity, value: valor, unit: def.unit, status: semaforo(def.code, valor), numerator: denominador > 0 ? redondear(numerador) : null, denominator: denominador, thresholds: def.thresholds };
+  return { code: def.code, name: def.name, activity: def.activity, value: valor, unit: def.unit, status: semaforo(def.code, valor, reglas), numerator: denominador > 0 ? redondear(numerador) : null, denominator: denominador, thresholds: reglas.semaforos[def.code] };
 }
-const kpisDe = (s: Sumas) => KPI_DEFS.map(def => construirKpi(def, ...partes(def.code, s)));
+const kpisDe = (s: Sumas, reglas: ReglasVigentes) => KPI_DEFS.map(def => construirKpi(def, ...partes(def.code, s), reglas));
 const valoresDe = (s: Sumas) => Object.fromEntries(KPI_DEFS.map(def => [def.code, construirKpi(def, ...partes(def.code, s)).value])) as Record<KpiCode, number | null>;
 
 // ---------------------------------------------------------------------------
@@ -266,9 +240,10 @@ async function ultimaCargaSinCache() {
 }
 
 /** KPI globales del periodo y filtros (numerador/denominador incluidos). */
-export async function kpisPeriodo(f: Filtros) {
+export async function kpisPeriodo(f: Filtros, reglas?: ReglasVigentes) {
+  const vigentes = reglas ?? await reglasVigentes();
   const mapa = await agregar('none', f);
-  return kpisDe(mapa.get('all')?.sumas || sumasVacias());
+  return kpisDe(mapa.get('all')?.sumas || sumasVacias(), vigentes);
 }
 
 export async function listasFiltros() {
@@ -284,16 +259,21 @@ export async function listasFiltros() {
   };
 }
 
-/** Respuesta completa de `GET buyer/kpis`. */
-export function buyerKpis(entrada: { from?: string; to?: string; canal?: string; campana?: number; video?: number }) {
-  return conCache(`kpis-v2|${JSON.stringify([entrada.from || '', entrada.to || '', entrada.canal || '', entrada.campana || 0, entrada.video || 0])}`, () => buyerKpisSinCache(entrada), { firma: firmaCarga });
+/**
+ * Respuesta completa de `GET buyer/kpis`. La caché guarda SUMAS (numeradores y denominadores) y no estados: `status` y `thresholds` se calculan en cada
+ * respuesta con las reglas vigentes, así que cambiar o restaurar un semáforo se refleja al instante sin volver a consultar el DataMart.
+ */
+export async function buyerKpis(entrada: { from?: string; to?: string; canal?: string; campana?: number; video?: number }, reglas?: ReglasVigentes) {
+  const vigentes = reglas ?? await reglasVigentes();
+  const { sumasGlobales, ...resto } = await conCache(`kpis-v4|${JSON.stringify([entrada.from || '', entrada.to || '', entrada.canal || '', entrada.campana || 0, entrada.video || 0])}`, () => buyerKpisSinCache(entrada), { firma: firmaCarga });
+  return { ...resto, kpis: sumasGlobales ? kpisDe(sumasGlobales, vigentes) : [] };
 }
 async function buyerKpisSinCache(entrada: { from?: string; to?: string; canal?: string; campana?: number; video?: number }) {
   const defecto = await periodoPorDefecto();
   const from = entrada.from || defecto?.from, to = entrada.to || defecto?.to;
   const lastLoad = await ultimaCarga();
   const filters = await listasFiltros();
-  if (!from || !to) return { period: { from: null, to: null }, lastLoad, filters, kpis: [], trend: [], byCanal: [], byCampana: [], byVideo: [] };
+  if (!from || !to) return { period: { from: null, to: null }, lastLoad, filters, sumasGlobales: null as Sumas | null, trend: [], byCanal: [], byCampana: [], byVideo: [] };
   const f: Filtros = { from, to, canal: entrada.canal, campana: entrada.campana, video: entrada.video };
   const tendenciaDesde = inicioMes(to, -11);
   // En serie: la instancia tiene poca memoria para concesiones de consulta y varias agregaciones a la vez se bloquean entre sí.
@@ -308,7 +288,7 @@ async function buyerKpisSinCache(entrada: { from?: string; to?: string; canal?: 
     lastLoad,
     filters,
     applied: { canal: f.canal || null, campana: f.campana || null, video: f.video || null },
-    kpis: kpisDe(global.get('all')?.sumas || sumasVacias()),
+    sumasGlobales: (global.get('all')?.sumas || sumasVacias()) as Sumas | null,
     trend: [...tendencia.values()].sort((a, b) => String(a.fila.mes).localeCompare(String(b.fila.mes))).map(({ fila, sumas }) => ({ mes: String(fila.mes), ...valoresDe(sumas) })),
     byCanal: [...porCanal.values()].sort((a, b) => b.sumas.visitas - a.sumas.visitas).map(({ fila, sumas }) => ({ canal: String(fila.canal), canalNombre: String(fila.canalNombre ?? fila.canal), visitas: sumas.visitas, ...valoresDe(sumas) })),
     // Todo del periodo y filtros: costo = suma de hecho.CostoCampana con fecha en el periodo; costoPorLead = costo / leadsNuevos (solo campañas pagadas).

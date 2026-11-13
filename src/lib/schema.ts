@@ -111,12 +111,24 @@ export const specs: Record<string, ModelAttributes> = {
     id, activity: req(4), trigger: req(20), status: req(20),
     periodFrom: { type: DataTypes.DATEONLY, allowNull: true }, periodTo: { type: DataTypes.DATEONLY, allowNull: true },
     instructions: text, context: text, analysis: text, provider: str(40), model: str(100), error: text,
-    requestedBy: str(80), createdAt, finishedAt: date
+    requestedBy: str(80), createdAt, finishedAt: date,
+    // Progreso visible (migración 011): paso actual, cuándo empezó, registro JSON [{ at, step, message }] y última escritura.
+    step: str(12), stepStartedAt: date, log: text, updatedAt: date
   },
   amp_buyer_proposals: {
     id, runId: { type: DataTypes.INTEGER, allowNull: false }, activity: req(4), kind: req(20),
     audience: str(20), channel: str(20), campaignType: str(20), videoId: { type: DataTypes.INTEGER, allowNull: true },
     recommendationType: str(30), title: req(200), content: { type: DataTypes.TEXT, allowNull: false }, rationale: text, evidence: text,
     status: req(20), editedContent: text, decidedBy: str(80), decidedAt: date, decisionReason: text, createdAt
+  },
+  // Reglas de negocio variables del agente Buyer → Lead (migración 010). `params` es JSON.
+  amp_buyer_rules: {
+    id, code: { ...req(80), unique: true }, category: req(20), name: req(150), description: text, params: text,
+    enabled: bool(true), origin: req(10), locked: bool(false), updatedBy: str(80), updatedAt: date, createdAt
+  },
+  // Avisos de las reglas ALERTA, uno por regla y día de Lima (`dayKey`).
+  amp_buyer_alerts: {
+    id, ruleId: { type: DataTypes.INTEGER, allowNull: false }, dayKey: str(10), kpi: str(10), value: number, status: str(20),
+    message: req(500), action: str(20), runId: { type: DataTypes.INTEGER, allowNull: true }, createdAt, acknowledgedBy: str(80), acknowledgedAt: date
   }
 };

@@ -87,7 +87,7 @@ test('sanearTexto elimina solo las frases infractoras', () => {
 });
 
 test('pilares y llamado: detección y complemento en cada PUBLICACION', () => {
-  assert.deepEqual(pilaresEn('Ofrecemos una ruta de estudio y seguimiento académico'), ['RUTA_DE_ESTUDIO', 'SEGUIMIENTO_ACADEMICO']);
+  assert.deepEqual(pilaresEn('Ofrecemos una ruta de estudio y seguimiento académico'), ['Ruta de estudio', 'Seguimiento académico']);
   assert.equal(tieneLlamado('Entra a la landing'), true);
   assert.equal(tieneLlamado('Gran examen en octubre'), false);
   const sin = exigirPilarYLlamado(publicacion({ content: 'Gancho: Hola\nTexto: Estamos aquí.' }));
