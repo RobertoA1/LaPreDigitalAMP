@@ -6,12 +6,22 @@ import { ESTADO_KPI, KPI_CODES, KPI_NOMBRES, estadoDe, fmt, int, num2, type Obj 
 import FilterBar from './filters';
 import { useBlock, useBuyer, useDebounced } from './hooks';
 import { Empty, Msg, Section, SortTable, StaleNote, type Col } from './ui';
+import { TabLink } from './tab-link';
+import { leerPeriodo } from './period-reading';
 
 export default function TabAnalisis() {
   const { kpis } = useBuyer();
+  const lectura = kpis.data ? leerPeriodo(kpis.data.kpis || []) : null;
   return <>
     <FilterBar />
     <StaleNote block={kpis} what="el análisis" />
+    <Section eyebrow="LECTURA DEL PERIODO" title="Lectura del periodo">
+      {lectura ? <div className="bp-grid-2">
+          <div><h4>Qué pasó</h4><p>{lectura.quePaso}</p></div>
+          <div><h4>Qué hacer</h4><p>{lectura.queHacer}</p></div>
+          <div><h4>Qué acción tomar</h4><p>{lectura.queAccion}{lectura.abrirAgente && <> <TabLink tab="agente" className="text-link">Abrir Agente</TabLink></>}</p></div>
+        </div> : <Msg block={kpis} what="la lectura del período" />}
+    </Section>
     <div className="bp-grid-2">
       <Trend />
       <Abandonment />
