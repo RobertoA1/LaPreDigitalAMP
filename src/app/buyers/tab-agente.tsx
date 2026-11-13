@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { Check, Circle, Megaphone, Video } from 'lucide-react';
-import { duracion, lima, post, textoNiveles, type Obj } from './api';
+import { duracion, int, lima, num2, post, textoNiveles, type Obj } from './api';
 import { ACT_NOMBRE, DISPARADOR, ESTADO_AGENTE, PASOS, PASO_CORTO, PASO_TEXTO, logDe } from './agent-meta';
 import { useBlock, useBuyer, useNow, type Block } from './hooks';
 import { TabLink } from './tab-link';
@@ -11,10 +11,62 @@ export default function TabAgente() {
   const { agent } = useBuyer();
   const runs = useBlock('buyer/runs', { live: true, intervalMs: 60000 });
   return <>
+    <Actividades />
+    <Realtime />
     <EnCurso />
     <Lanzar onLaunched={() => { agent.refresh(); runs.refresh(); }} />
     <Historial runs={runs} />
   </>;
+}
+
+function Actividades() {
+  return <Section eyebrow="ALCANCE" title="Actividades">
+    <div className="bp-kpis">
+      <article className="panel">
+        <h4>B-1 · Publicaciones</h4>
+        <p>Difundir publicaciones orgánicas y anuncios pagados en TikTok, Instagram y WhatsApp hacia la landing.</p>
+        <p>El agente propone publicaciones para estudiantes postulantes y padres o apoderados.</p>
+      </article>
+      <article className="panel">
+        <h4>B-2 · Video breve</h4>
+        <p>Presentar un video breve y registrar el punto de reproducción alcanzado.</p>
+        <p>El agente propone variantes de guion y llamado al formulario, analiza el abandono y recomienda cambios de duración, orden de beneficios o mensaje final.</p>
+      </article>
+      <article className="panel">
+        <h4>B-3 · Formulario breve</h4>
+        <p>Captar datos con un formulario breve.</p>
+        <p>No requiere IA ni tiene una acción de ejecución en el agente.</p>
+      </article>
+    </div>
+  </Section>;
+}
+
+// ---------------------------------------------------------------------------
+// Actividad de hoy (OLTP) y notificaciones de inscripciones
+// ---------------------------------------------------------------------------
+const FORM_STATES: Record<string, string> = { VALIDO: 'Válido', DUPLICADO: 'Duplicado', INVALIDO: 'Inválido', REVISION: 'En revisión', DESCONOCIDO: 'Desconocido' };
+const toneForm = (s: string) => (s === 'VALIDO' ? 'teal' : s === 'REVISION' ? 'orange' : 'light');
+function Realtime() {
+  const block = useBlock('buyer/realtime', { live: true, intervalMs: 60000 });
+  const d = block.data, t = d?.today;
+  const notes: Obj[] = d?.notifications || [];
+  const m = Msg({ block, what: 'actividad de hoy' });
+  return <Section eyebrow="OLTP · HOY EN TIEMPO REAL" title="Hoy en tiempo real" right={<span className="muted tiny">Última actividad: {lima(d?.lastActivityAt, true)} (Lima)</span>}>
+    {m || <>
+      <div className="bp-today">
+        <div><span>Visitas</span><strong>{int(t?.visitas)}</strong><small>{int(t?.visitasConCampana)} con campaña</small></div>
+        <div><span>Reproducciones</span><strong>{int(t?.reproducciones)}</strong></div>
+        <div><span>Conversión</span><strong>{t?.conversion == null ? '—' : `${num2(t.conversion)} %`}</strong><small>válidos + duplicados / visitas</small></div>
+        <div><span>Formularios por estado</span><div className="bp-forms">{Object.keys(FORM_STATES).filter(k => k !== 'DESCONOCIDO').map(k => <Tag key={k} tone={toneForm(k)}>{FORM_STATES[k]}: {int(t?.formularios?.[k] ?? 0)}</Tag>)}</div></div>
+      </div>
+      <h4>Notificaciones de inscripciones en vivo</h4>
+      {notes.length ? <ul className="bp-notes">{notes.map(n => <li key={n.id}>
+        <strong>Formulario #{n.formId}</strong><Tag tone={toneForm(n.formStatus)}>{FORM_STATES[n.formStatus] || n.formStatus}</Tag>
+        <span>{n.channel || 'Canal sin identificar'}</span><span>{n.campaignName || 'Sin campaña'}</span><span>{lima(n.occurredAt || n.receivedAt, true)}</span>
+        <Tag tone={n.verified ? 'teal' : 'orange'}>{n.verified ? 'Verificada en el OLTP' : 'No verificada'}</Tag></li>)}</ul>
+        : <p className="muted">Aún no llegan notificaciones de inscripciones.</p>}
+    </>}
+  </Section>;
 }
 
 // ---------------------------------------------------------------------------
