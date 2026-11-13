@@ -16,14 +16,14 @@ export default function FilterBar() {
   useEffect(() => { setFechaDesde(defaultFrom); }, [defaultFrom]);
   useEffect(() => { setFechaHasta(defaultTo); }, [defaultTo]);
 
-  const mesesDisponibles = new Set<string>();
-  for (const r of (d?.trend || []) as Obj[]) {
-    const digits = String(r.mes ?? '').replace(/\D/g, '');
-    if (digits.length !== 6) continue;
-    const year = digits.slice(0, 4), month = digits.slice(4);
-    if (Number(month) >= 1 && Number(month) <= 12) mesesDisponibles.add(`${year}-${month}`);
-  }
-  const meses = [...mesesDisponibles].sort();
+  const fechaFinDatos = String(d?.lastLoad?.fechaDatos || d?.period?.to || '');
+  const corteMes = /^(\d{4})-(\d{2})-\d{2}$/.exec(fechaFinDatos);
+  const meses = corteMes
+    ? Array.from({ length: 17 }, (_, index) => {
+      const fecha = new Date(Date.UTC(Number(corteMes[1]), Number(corteMes[2]) - 1 - index, 1));
+      return `${fecha.getUTCFullYear()}-${String(fecha.getUTCMonth() + 1).padStart(2, '0')}`;
+    }).reverse()
+    : [];
   const mesSeleccionado = from && to && from.slice(0, 7) === to.slice(0, 7)
     && from.endsWith('-01')
     && Number(to.slice(8)) === new Date(Date.UTC(Number(to.slice(0, 4)), Number(to.slice(5, 7)), 0)).getUTCDate()
