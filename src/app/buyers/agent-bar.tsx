@@ -26,7 +26,7 @@ export default function AgentBar() {
     setOcupado(`modo-${activity}`);
     try {
       await post('buyer/agent/mode', { activity, mode });
-      toast(`${ACT_NOMBRE[activity]}: modo ${mode === 'AUTOMATICO' ? 'automático' : 'manual'} activado.`);
+      toast(`${ACT_NOMBRE[activity]}: ${mode === 'AUTOMATICO' ? 'Automático (cada semana)' : 'Manual (al pulsar Ejecutar)'} activado.`);
       agent.refresh();
     } catch (err) { toast(`No se pudo cambiar el modo: ${(err as Error).message}`); }
     finally { setOcupado(''); setConfirmar(null); }
@@ -64,16 +64,16 @@ export default function AgentBar() {
           onMode={m => (m === 'AUTOMATICO' ? setConfirmar(act) : cambiarModo(act, 'MANUAL'))} onRun={() => ejecutar(act)} />;
       })}
     </div>}
-    <Dialog open={!!confirmar} onClose={() => setConfirmar(null)} title={`Pasar ${confirmar ? ACT_NOMBRE[confirmar] : ''} a modo Automático`}
+    <Dialog open={!!confirmar} onClose={() => setConfirmar(null)} title={`Pasar ${confirmar ? ACT_NOMBRE[confirmar] : ''} a Automático (cada semana)`}
       actions={<>
-        <button className="button primary" disabled={!!ocupado} onClick={() => confirmar && cambiarModo(confirmar, 'AUTOMATICO')}>{ocupado ? <Spinner /> : <Zap size={14} />} Activar modo automático</button>
+        <button className="button primary" disabled={!!ocupado} onClick={() => confirmar && cambiarModo(confirmar, 'AUTOMATICO')}>{ocupado ? <Spinner /> : <Zap size={14} />} Activar Automático (cada semana)</button>
         <button className="button secondary" onClick={() => setConfirmar(null)}>Cancelar</button></>}>
-      <p>En modo automático el agente se ejecutará <b>por sí solo</b>, sin que nadie pulse el botón:</p>
+      <p>Con Automático (cada semana), el agente trabaja solo según el horario configurado en Reglas. También puede ejecutar las alertas configuradas:</p>
       <ul className="bp-list">
         <li>lanzará la ejecución semanal programada (día y hora de Lima definidos en <TabLink tab="reglas" onNavigate={() => setConfirmar(null)}>Reglas</TabLink>);</li>
         <li>lanzará las ejecuciones de las alertas cuya acción sea «ejecutar», respetando los días de enfriamiento.</li>
       </ul>
-      <p className="muted">Las propuestas siguen naciendo como <b>borrador</b>: una persona debe aprobarlas. Nada se publica ni se envía solo. Puedes volver a Manual cuando quieras.</p>
+      <p className="muted">Las propuestas siguen naciendo como <b>borrador</b>: una persona debe aprobarlas. Nada se publica ni se envía solo. Puedes cambiar a Manual (al pulsar Ejecutar) cuando quieras.</p>
     </Dialog>
   </section>;
 }
@@ -110,7 +110,7 @@ function ActivityCard({ a, now, workerOn, loading, canChange, role, ocupado, onM
     </div>
     <div className="bp-act-mode">
       <Segmented label={`Modo de ${ACT_NOMBRE[act]}`} value={mode} disabled={!canChange || loading} busy={ocupado === `modo-${act}`} onChange={onMode}
-        options={[{ value: 'AUTOMATICO', label: 'Automático', icon: <Zap size={14} aria-hidden="true" /> }, { value: 'MANUAL', label: 'Manual', icon: <Hand size={14} aria-hidden="true" /> }]} />
+        options={[{ value: 'AUTOMATICO', label: 'Automático (cada semana)', icon: <Zap size={14} aria-hidden="true" /> }, { value: 'MANUAL', label: 'Manual (al pulsar Ejecutar)', icon: <Hand size={14} aria-hidden="true" /> }]} />
       {!canChange && <small className="bp-lock"><Lock size={11} aria-hidden="true" /> {role ? 'No disponible ahora.' : 'Solo Administración o Dirección pueden cambiar el modo.'}</small>}
     </div>
     <dl className="bp-act-info">
@@ -118,7 +118,7 @@ function ActivityCard({ a, now, workerOn, loading, canChange, role, ocupado, onM
         {haceCuanto(last.finishedAt, now)} <Tag tone={last.status === 'FAILED' ? 'orange' : 'teal'}>{last.status === 'FAILED' ? 'Fallida' : 'Terminada'}</Tag>
         <small>{DISPARADOR[last.trigger] || last.trigger} · {last.provider ? `${last.provider}${last.model ? ` ${last.model}` : ''}` : 'sin proveedor'} · {last.proposals ?? 0} {last.proposals === 1 ? 'propuesta' : 'propuestas'}</small>
         {last.status === 'FAILED' && last.error && <small className="bp-err">{last.error}</small>}</> : 'Aún no se ha ejecutado'}</dd></div>
-      <div><dt>Próxima automática</dt><dd>{proximo}</dd></div>
+      <div><dt>Próxima ejecución automática</dt><dd>{proximo}</dd></div>
     </dl>
     <div className="bp-act-run">
       <button className="button primary" disabled={busy || loading || ocupado === `run-${act}`} onClick={onRun}>
@@ -142,7 +142,7 @@ export function MiniStatus() {
     {ACTIVIDADES.map(act => {
       const a = activities.find(x => x.activity === act) || { mode: d.mode?.[act] || 'MANUAL', state: 'EN_REPOSO' };
       const est = ESTADO_AGENTE[a.state] || ESTADO_AGENTE.EN_REPOSO;
-      return <span key={act}>{est.icon}<b>{act === 'B1' ? 'B-1' : 'B-2'}</b> {a.mode === 'AUTOMATICO' ? 'Automático' : 'Manual'} · {est.label}</span>;
+      return <span key={act}>{est.icon}<b>{act === 'B1' ? 'B-1' : 'B-2'}</b> {a.mode === 'AUTOMATICO' ? 'Automático (cada semana)' : 'Manual (al pulsar Ejecutar)'} · {est.label}</span>;
     })}
   </div>;
 }

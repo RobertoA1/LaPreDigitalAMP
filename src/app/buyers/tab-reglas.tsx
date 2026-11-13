@@ -12,11 +12,39 @@ const CATEGORIAS_BASE: Record<string, [string, string]> = {
   MEDICION: ['Cómo se mide', 'Definiciones que calcula el DataMart. Se muestran para que se sepa qué significa cada cifra; no se pueden cambiar desde aquí.'],
   CONTENIDO: ['Contenido de las propuestas', 'Qué puede y qué debe decir una propuesta del agente.'],
   COBERTURA: ['Qué genera el agente', 'Para qué públicos, canales y videos prepara propuestas, y cuándo recomienda mejorar la atribución.'],
-  AUTOMATIZACION: ['Programación automática', 'Cuándo se ejecuta solo el agente (solo si la actividad está en modo Automático).'],
+  AUTOMATIZACION: ['Programación automática', 'Define cuándo trabaja solo el agente. Se aplica si el modo está en Automático (cada semana).'],
   APROBACION: ['Aprobación humana', 'Garantías que no se pueden desactivar.'],
   ALERTA: ['Alertas personalizadas', 'Avisos que tú defines: «si un KPI cumple una condición, entonces avisar o ejecutar al agente».'],
   DIRECTRIZ: ['Directrices para la IA', 'Indicaciones en lenguaje natural que la IA debe respetar en todas sus ejecuciones.']
 };
+
+const TEXTOS_REGLAS_SISTEMA: Record<string, { name?: string; description?: string }> = {
+  AUT_SEMANAL_B1: {
+    name: 'Ejecución semanal de B-1',
+    description: 'Indica el día y la hora de Lima en que el agente debe ejecutar B-1. En modo Automático (cada semana), trabaja según este horario.'
+  },
+  AUT_SEMANAL_B2: {
+    name: 'Ejecución semanal de B-2',
+    description: 'Indica el día y la hora de Lima en que el agente debe ejecutar B-2. En modo Automático (cada semana), trabaja según este horario.'
+  },
+  AUT_ENFRIAMIENTO: {
+    description: 'Días mínimos que deben pasar entre ejecuciones de una actividad iniciadas por una alerta cuando está activo Automático (cada semana).'
+  },
+  ALR_B1_ROJO: {
+    description: 'Si algún KPI de B-1 está en rojo en el periodo por defecto, avisa. Si está activo Automático (cada semana), también ejecuta B-1.'
+  },
+  ALR_B2_ROJO: {
+    description: 'Si algún KPI de B-2 está en rojo en el periodo por defecto, avisa. Si está activo Automático (cada semana), también ejecuta B-2.'
+  }
+};
+
+function nombreReglaVisible(rule: Obj): string {
+  return TEXTOS_REGLAS_SISTEMA[String(rule.code)]?.name || String(rule.name);
+}
+
+function descripcionReglaVisible(rule: Obj): string | null {
+  return TEXTOS_REGLAS_SISTEMA[String(rule.code)]?.description || rule.description || null;
+}
 
 export default function TabReglas() {
   const { puedeEditar, kpis, agent, search, toast } = useBuyer();
@@ -90,8 +118,8 @@ export default function TabReglas() {
       title={pendiente?.tipo === 'eliminar' ? 'Eliminar regla' : pendiente?.tipo === 'todas' ? 'Restaurar todas las reglas' : 'Restaurar regla'}
       actions={<><button className="button primary" disabled={ocupado} onClick={ejecutar}>{ocupado ? <Spinner /> : pendiente?.tipo === 'eliminar' ? <Trash2 size={14} /> : <RotateCcw size={14} />} {pendiente?.tipo === 'eliminar' ? 'Eliminar' : 'Restaurar'}</button>
         <button className="button secondary" onClick={() => setPendiente(null)}>Cancelar</button></>}>
-      {pendiente?.tipo === 'eliminar' && <p>Se eliminará «{pendiente.rule?.name}». Esta acción no se puede deshacer.</p>}
-      {pendiente?.tipo === 'restaurar' && <p>«{pendiente.rule?.name}» volverá a su valor de fábrica: <b>{resumenRegla(pendiente.rule!, true)}</b>.</p>}
+      {pendiente?.tipo === 'eliminar' && <p>Se eliminará «{pendiente.rule ? nombreReglaVisible(pendiente.rule) : ''}». Esta acción no se puede deshacer.</p>}
+      {pendiente?.tipo === 'restaurar' && <p>«{pendiente.rule ? nombreReglaVisible(pendiente.rule) : ''}» volverá a su valor de fábrica: <b>{resumenRegla(pendiente.rule!, true)}</b>.</p>}
       {pendiente?.tipo === 'todas' && <p>Todas las reglas de sistema modificadas volverán a su valor de fábrica. Las alertas y directrices creadas por ti no se tocan.</p>}
     </Dialog>
   </>;
@@ -111,7 +139,7 @@ function RuleCard({ rule, canEdit, abierta, destacada, kpiActual, onEdit, onClos
   return <article id={`regla-${rule.code}`} className={`bp-rule ${rule.enabled ? '' : 'off'} ${destacada ? 'flash' : ''} ${rule.locked ? 'locked' : ''}`}>
     <div className="bp-rule-top">
       <div>
-        <h4>{rule.locked && <Lock size={14} aria-label="Bloqueada" />} {rule.name}</h4>
+        <h4>{rule.locked && <Lock size={14} aria-label="Bloqueada" />} {nombreReglaVisible(rule)}</h4>
         <div className="bp-prop-tags">
           {rule.locked && <Tag tone="light">Bloqueada</Tag>}
           <Tag tone={rule.enabled ? 'teal' : 'neutral'}>{rule.enabled ? 'Activa' : 'Desactivada'}</Tag>
@@ -127,7 +155,7 @@ function RuleCard({ rule, canEdit, abierta, destacada, kpiActual, onEdit, onClos
         {usuario && <button className="button secondary" onClick={onDelete}><Trash2 size={13} /> Eliminar</button>}
       </div>}
     </div>
-    {rule.description && <p className="bp-rule-desc">{rule.description}</p>}
+    {descripcionReglaVisible(rule) && <p className="bp-rule-desc">{descripcionReglaVisible(rule)}</p>}
     <dl className="bp-rule-vals">
       <div><dt>Valor vigente</dt><dd>{resumenRegla(rule)}</dd></div>
       {cambiada && <div><dt>De fábrica</dt><dd>{resumenRegla(rule, true)}</dd></div>}

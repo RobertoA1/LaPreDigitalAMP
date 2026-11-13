@@ -8,11 +8,11 @@ export const PASO_TEXTO: Record<string, string> = {
   COLA: 'En cola', CONTEXTO: 'Reuniendo el contexto', IA: 'Consultando a la IA', REGLAS: 'Aplicando las reglas', GUARDADO: 'Guardando propuestas', FIN: 'Finalizada'
 };
 export const PASO_CORTO: Record<string, string> = { COLA: 'Cola', CONTEXTO: 'Contexto', IA: 'IA', REGLAS: 'Reglas', GUARDADO: 'Guardado', FIN: 'Fin' };
-export const DISPARADOR: Record<string, string> = { MANUAL: 'Manual', SCHEDULED: 'Programada', KPI_ALERT: 'Alerta de KPI' };
+export const DISPARADOR: Record<string, string> = { MANUAL: 'Manual (al pulsar Ejecutar)', SCHEDULED: 'Automático (cada semana)', KPI_ALERT: 'Alerta de KPI' };
 export const ACT_NOMBRE: Record<string, string> = { B1: 'B-1 Publicaciones', B2: 'B-2 Video y guion' };
 
 export const ESTADO_AGENTE: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
-  EN_REPOSO: { label: 'En reposo', cls: 'reposo', icon: <Moon size={15} aria-hidden="true" /> },
+  EN_REPOSO: { label: 'Sin tareas en este momento', cls: 'reposo', icon: <Moon size={15} aria-hidden="true" /> },
   EN_COLA: { label: 'En cola', cls: 'cola', icon: <Clock3 size={15} aria-hidden="true" /> },
   EJECUTANDO: { label: 'Ejecutando', cls: 'ejecutando', icon: <Loader2 size={15} className="bp-spin" aria-hidden="true" /> },
   ERROR: { label: 'Error', cls: 'error', icon: <AlertOctagon size={15} aria-hidden="true" /> }
